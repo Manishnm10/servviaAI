@@ -1,3 +1,4 @@
+#Start script for macOS
 #!/bin/bash
 echo "🚀 Setting up ServVia..."
 
