@@ -1,3 +1,4 @@
+#Start script for Windows Command Prompt
 @echo off
 echo ========================================
 echo    ServVia - Starting All Servers
