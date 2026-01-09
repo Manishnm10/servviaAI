@@ -1,0 +1,1741 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ServVia - AI Healthcare Intelligence</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        background: #000000;
+        color: #ffffff;
+        font-family: 'Inter', sans-serif;
+        height: 100vh;
+        overflow: hidden;
+      }
+
+      .bg-gradient {
+        background: #000000;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+      }
+
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        padding: 0;
+        position: relative;
+        z-index: 1;
+      }
+
+      .header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 1.5rem 2rem;
+        border-bottom: 1px solid rgba(220, 38, 38, 0.2);
+        background: #000000;
+      }
+
+      .logo {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+      }
+
+      .logo-icon {
+        width: 40px;
+        height: 40px;
+        background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
+      }
+
+      .logo-text h1 {
+        font-size: 1.75rem;
+        font-weight: 700;
+        letter-spacing: -0.5px;
+        background: linear-gradient(135deg, #ffffff 0%, #dc2626 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+
+      .logo-text p {
+        font-size: 0.75rem;
+        color: rgba(255, 255, 255, 0.5);
+        letter-spacing: 2px;
+        text-transform: uppercase;
+      }
+
+      .header-right {
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+      }
+
+      .profile-info {
+        display: none;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 0.5rem;
+      }
+
+      .profile-info.active {
+        display: flex;
+      }
+
+      .profile-name {
+        font-size: 1rem;
+        font-weight: 600;
+        color: #ffffff;
+      }
+
+      .profile-badges {
+        display: flex;
+        gap: 0.5rem;
+        font-size: 0.75rem;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
+
+      .badge {
+        background: rgba(220, 38, 38, 0.1);
+        border: 1px solid rgba(220, 38, 38, 0.3);
+        padding: 0.25rem 0.75rem;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+        white-space: nowrap;
+        color: #dc2626;
+      }
+
+      .edit-profile-btn {
+        background: rgba(220, 38, 38, 0.1);
+        border: 1px solid rgba(220, 38, 38, 0.3);
+        color: #dc2626;
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 0.875rem;
+        transition: all 0.3s ease;
+        display: none;
+        white-space: nowrap;
+      }
+
+      .edit-profile-btn.active {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
+      .edit-profile-btn:hover {
+        background: rgba(220, 38, 38, 0.2);
+        border-color: rgba(220, 38, 38, 0.5);
+      }
+
+      .status {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: rgba(255, 255, 255, 0.6);
+        font-size: 0.875rem;
+      }
+
+      .status-dot {
+        width: 8px;
+        height: 8px;
+        background: #22c55e;
+        border-radius: 50%;
+        animation: pulse 2s ease-in-out infinite;
+      }
+
+      @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+      }
+
+      .chat-wrapper {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        padding: 2rem;
+      }
+
+      #chat {
+        flex: 1;
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding: 2rem;
+        background: #000000;
+        border-radius: 16px;
+        border: 1px solid rgba(220, 38, 38, 0.1);
+        margin-bottom: 1.5rem;
+      }
+
+      #chat::-webkit-scrollbar {
+        width: 8px;
+      }
+
+      #chat::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 10px;
+      }
+
+      #chat::-webkit-scrollbar-thumb {
+        background: rgba(220, 38, 38, 0.3);
+        border-radius: 10px;
+      }
+
+      #chat::-webkit-scrollbar-thumb:hover {
+        background: rgba(220, 38, 38, 0.5);
+      }
+
+      .screen {
+        display: none;
+      }
+
+      .screen.active {
+        display: block;
+      }
+
+      .welcome-screen, .onboarding-screen {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        min-height: 400px;
+      }
+
+      .welcome-icon {
+        font-size: 4rem;
+        margin-bottom: 2rem;
+        background: linear-gradient(135deg, #ffffff 0%, #dc2626 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+
+      .welcome-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 0.75rem;
+        letter-spacing: -1px;
+        color: #ffffff;
+      }
+
+      .welcome-subtitle {
+        font-size: 1.125rem;
+        color: rgba(255, 255, 255, 0.6);
+        margin-bottom: 3rem;
+      }
+
+      .form-container {
+        width: 100%;
+        max-width: 500px;
+      }
+
+      .form-group {
+        margin-bottom: 1.5rem;
+        text-align: left;
+      }
+
+      .form-label {
+        display: block;
+        margin-bottom: 0.5rem;
+        color: rgba(255, 255, 255, 0.8);
+        font-size: 0.875rem;
+        font-weight: 500;
+      }
+
+      .form-input, .form-textarea {
+        width: 100%;
+        padding: 1rem 1.5rem;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(220, 38, 38, 0.2);
+        border-radius: 12px;
+        color: #ffffff;
+        font-size: 1rem;
+        outline: none;
+        transition: all 0.3s ease;
+        font-family: 'Inter', sans-serif;
+      }
+
+      /* Fix for select dropdown (Sex field) */
+      .form-input select,
+      select.form-input {
+        background-color: rgba(255, 255, 255, 0.05);
+        color: #ffffff;
+        cursor: pointer;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%23dc2626' viewBox='0 0 16 16'%3E%3Cpath d='M7. 247 11.14L2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 1rem center;
+        padding-right: 2.5rem;
+      }
+
+      select.form-input option {
+        background-color: #1a1a1a;
+        color: #ffffff;
+        padding: 0.5rem;
+      }
+
+      /* Remove age input spinner arrows */
+      input[type="number"]. form-input: :-webkit-outer-spin-button,
+      input[type="number"]. form-input::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+      }
+
+      input[type="number"].form-input {
+        -moz-appearance: textfield;
+      }
+
+
+      .form-textarea {
+        resize: vertical;
+        min-height: 80px;
+      }
+
+      .form-input::placeholder, .form-textarea::placeholder {
+        color: rgba(255, 255, 255, 0.3);
+      }
+
+      .form-input:focus, .form-textarea:focus {
+        background: rgba(255, 255, 255, 0.08);
+        border-color: #dc2626;
+        box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+      }
+
+      .form-hint {
+        margin-top: 0.5rem;
+        font-size: 0.75rem;
+        color: rgba(255, 255, 255, 0.4);
+      }
+
+      .btn {
+        width: 100%;
+        padding: 1rem 1.5rem;
+        background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+        border: none;
+        border-radius: 12px;
+        color: #ffffff;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
+      }
+
+      .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(220, 38, 38, 0.4);
+      }
+
+      .btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none;
+      }
+
+      .features {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1.5rem;
+        margin-top: 3rem;
+        max-width: 700px;
+      }
+
+      .feature-card {
+        padding: 1.5rem;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(220, 38, 38, 0.2);
+        border-radius: 12px;
+        text-align: center;
+        transition: all 0.3s ease;
+      }
+
+      .feature-card:hover {
+        background: rgba(220, 38, 38, 0.05);
+        border-color: rgba(220, 38, 38, 0.3);
+        transform: translateY(-4px);
+      }
+
+      .feature-icon {
+        font-size: 2rem;
+        color: #dc2626;
+        margin-bottom: 0.75rem;
+      }
+
+      .feature-text {
+        font-size: 0.875rem;
+        color: rgba(255, 255, 255, 0.7);
+      }
+
+      .message {
+        margin: 1.5rem 0;
+        max-width: 80%;
+        animation: slideIn 0.3s ease;
+        clear: both;
+      }
+
+      @keyframes slideIn {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .user-message {
+        float: right;
+        clear: both;
+      }
+
+      .user-message .message-content {
+        background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+        color: #ffffff;
+        padding: 1rem 1.5rem;
+        border-radius: 16px 16px 4px 16px;
+        display: inline-block;
+        box-shadow: 0 4px 12px rgba(220, 38, 38, 0.2);
+      }
+
+      .bot-message {
+        float: left;
+        clear: both;
+      }
+
+      .bot-message .message-content {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(220, 38, 38, 0.2);
+        color: #ffffff;
+        padding: 1.5rem;
+        border-radius: 16px 16px 16px 4px;
+        line-height: 1.8;
+      }
+
+      /* Better markdown styling */
+      .message-content p {
+        margin: 0.75rem 0;
+        line-height: 1.8;
+        color: rgba(255, 255, 255, 0.9);
+      }
+
+      .message-content ul, .message-content ol {
+        margin: 1rem 0;
+        padding-left: 2rem;
+      }
+
+      .message-content li {
+        margin: 0.75rem 0;
+        line-height: 1.8;
+        color: rgba(255, 255, 255, 0.85);
+      }
+
+      .message-content strong {
+        color: #dc2626;
+        font-weight: 600;
+      }
+
+      .message-content h1, .message-content h2, .message-content h3 {
+        color: #dc2626;
+        margin: 1.5rem 0 0.75rem 0;
+        font-weight: 700;
+      }
+
+      .message-content code {
+        background: rgba(220, 38, 38, 0.1);
+        padding: 0.2rem 0.4rem;
+        border-radius: 4px;
+        font-size: 0.9em;
+        color: #ef4444;
+      }
+
+      .clearfix::after {
+        content: "";
+        display: table;
+        clear: both;
+      }
+
+      .input-container {
+        background: transparent;
+        border: none;
+        padding: 0;
+        margin: 0 2rem 2rem 2rem;
+        display: none;
+        position: relative;
+      }
+
+      .input-container.active {
+        display: block;
+      }
+
+      .input-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 28px;
+        padding: 0.5rem 0.75rem;
+        transition: all 0.3s ease;
+      }
+
+      .input-wrapper:focus-within {
+        border-color: rgba(220, 38, 38, 0.3);
+        background: rgba(255, 255, 255, 0.05);
+      }
+
+      #userInput {
+        flex: 1;
+        background: transparent;
+        border: none;
+        color: #ffffff;
+        font-size: 1rem;
+        outline: none;
+        padding: 0.75rem 0.5rem;
+      }
+
+      #userInput::placeholder {
+        color: rgba(255, 255, 255, 0.4);
+      }
+
+      /* Icon buttons - blend with background */
+      .icon-btn {
+        width: 40px;
+        height: 40px;
+        background: transparent;
+        border: none;
+        border-radius: 50%;
+        color: rgba(255, 255, 255, 0.5);
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.125rem;
+      }
+
+      .icon-btn:hover {
+        background: rgba(255, 255, 255, 0.1);
+        color: rgba(255, 255, 255, 0.9);
+      }
+
+      .plus-btn:hover {
+        color: #dc2626;
+      }
+
+      .mic-btn:hover {
+        color: #dc2626;
+      }
+
+      .send-btn {
+        background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+        color: #ffffff;
+        display: none;
+      }
+
+      .send-btn:hover {
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        transform: scale(1.05);
+      }
+
+      .send-btn.active {
+        display: flex;
+      }
+
+      /* Options menu (dropdown from plus button) */
+      .options-menu {
+        position: absolute;
+        bottom: 70px;
+        left: 0;
+        background: rgba(0, 0, 0, 0.95);
+        border: 1px solid rgba(220, 38, 38, 0.3);
+        border-radius: 12px;
+        padding: 0.5rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+        min-width: 200px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+        animation: slideUp 0.2s ease;
+      }
+
+      @keyframes slideUp {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .option-item {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.75rem 1rem;
+        background: transparent;
+        border: none;
+        border-radius: 8px;
+        color: rgba(255, 255, 255, 0.8);
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-align: left;
+        font-size: 0.95rem;
+      }
+
+      .option-item:hover {
+        background: rgba(220, 38, 38, 0.1);
+        color: #ffffff;
+      }
+
+      .option-item i {
+        font-size: 1.25rem;
+        color: #dc2626;
+        width: 24px;
+      }
+
+      .loading {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        margin-top: 0.75rem;
+        color: rgba(255, 255, 255, 0.6);
+        font-size: 0.875rem;
+      }
+
+      .hidden {
+        display: none !important;
+      }
+
+      /* Speaker button for TTS */
+      .message-actions {
+          display: flex;
+          justify-content: flex-end;
+          margin-top: 1rem;
+          padding-top: 0.75rem;
+          border-top: 1px solid rgba(220, 38, 38, 0.1);
+      }
+
+      .speaker-btn {
+          width: 36px;
+          height: 36px;
+          background: rgba(220, 38, 38, 0.1);
+          border: 1px solid rgba(220, 38, 38, 0.2);
+          border-radius: 50%;
+          color: rgba(255, 255, 255, 0.6);
+          cursor: pointer;
+          transition: all 0.3s ease;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 0.9rem;
+      }
+
+      .speaker-btn:hover {
+          background: rgba(220, 38, 38, 0.2);
+          color: #dc2626;
+          transform: scale(1.05);
+      }
+
+      .speaker-btn.speaking {
+          background: rgba(220, 38, 38, 0.3);
+          color: #dc2626;
+          animation: speakerPulse 1.5s infinite;
+      }
+
+      @keyframes speakerPulse {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4); }
+          50% { box-shadow: 0 0 0 8px rgba(220, 38, 38, 0); }
+      }
+      
+      /* Mic recording pulse */
+      .mic-btn.recording {
+        background: #ff4444 !important;
+        animation: pulseRecording 1.5s infinite;
+      }
+      
+      @keyframes pulseRecording {
+          0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 68, 68, 0.7); }
+          50% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(255, 68, 68, 0); }
+      }
+
+    </style>
+</head>
+
+<body class="bg-gradient">
+    <div class="container">
+      <div class="header">
+        <div class="logo">
+          <div class="logo-icon">
+            <i class="fas fa-heartbeat"></i>
+          </div>
+          <div class="logo-text">
+            <h1>ServVia</h1>
+            <p>AI Healthcare Intelligence</p>
+          </div>
+        </div>
+        <div class="header-right">
+          <div class="profile-info" id="profileInfo">
+            <div class="profile-name" id="profileName"></div>
+            <div class="profile-badges" id="profileBadges"></div>
+          </div>
+          <button class="edit-profile-btn" id="editProfileBtn" onclick="editProfile()">
+            <i class="fas fa-user-edit"></i> Edit Profile
+          </button>
+          <div class="status">
+            <div class="status-dot"></div>
+            <span>Online</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="chat-wrapper">
+        <div id="chat">
+          
+          <div id="emailScreen" class="screen active">
+            <div class="welcome-screen">
+              <div class="welcome-icon">
+                <i class="fas fa-stethoscope"></i>
+              </div>
+              <h2 class="welcome-title">Welcome to ServVia</h2>
+              <p class="welcome-subtitle">Your Personalized AI Health Companion</p>
+              
+              <div class="form-container">
+                <div class="form-group">
+                  <input
+                    type="email"
+                    id="emailInput"
+                    class="form-input"
+                    placeholder="Enter your email address"
+                    onkeypress="if(event.key === 'Enter') checkUserProfile()"
+                  />
+                </div>
+                <button class="btn" onclick="checkUserProfile()">
+                  Continue
+                </button>
+              </div>
+              
+              <div class="features">
+                <div class="feature-card">
+                  <div class="feature-icon"><i class="fas fa-user-md"></i></div>
+                  <p class="feature-text">Personalized Care</p>
+                </div>
+                <div class="feature-card">
+                  <div class="feature-icon"><i class="fas fa-shield-alt"></i></div>
+                  <p class="feature-text">Safety First</p>
+                </div>
+                <div class="feature-card">
+                  <div class="feature-icon"><i class="fas fa-leaf"></i></div>
+                  <p class="feature-text">Natural Remedies</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div id="onboardingScreen" class="screen">
+            <div class="onboarding-screen">
+              <div class="welcome-icon">
+                <i class="fas fa-clipboard-list"></i>
+              </div>
+              <h2 class="welcome-title" id="onboardingTitle">Tell Us About Yourself</h2>
+              <p class="welcome-subtitle">This helps us provide safe, personalized health recommendations</p>
+              
+              <div class="form-container">
+                <div class="form-group">
+                  <label class="form-label">What's your name?</label>
+                  <input
+                    type="text"
+                    id="nameInput"
+                    class="form-input"
+                    placeholder="Your first name"
+                  />
+                </div>
+                
+                <!-- NEW: Age and Sex fields -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap:  1rem;">
+                  <div class="form-group">
+                    <label class="form-label">
+                      <i class="fas fa-birthday-cake" style="color: #dc2626;"></i>
+                      Your Age
+                    </label>
+                    <input
+                      type="text"
+                      id="ageInput"
+                      class="form-input"
+                      placeholder="e.g., 25"
+                      inputmode="numeric"
+                      pattern="[0-9]*"
+                      maxlength="3"
+                    />
+                    <p class="form-hint">Helps with age-appropriate remedies</p>
+                  </div>
+
+                  <div class="form-group">
+                    <label class="form-label">
+                      <i class="fas fa-venus-mars" style="color: #dc2626;"></i>
+                      Sex
+                    </label>
+                    <select id="sexInput" class="form-input" style="cursor: pointer;">
+                      <option value="">Select... </option>
+                      <option value="male">Male</option>
+                      <option value="female">Female</option>
+                      <option value="other">Other</option>
+                      <option value="prefer_not_to_say">Prefer not to say</option>
+                    </select>
+                    <p class="form-hint">For gender-specific health advice</p>
+                  </div>
+                </div>
+
+
+                <div class="form-group">
+                  <label class="form-label">
+                    <i class="fas fa-exclamation-triangle" style="color: #dc2626;"></i>
+                    Do you have any allergies?
+                  </label>
+                  <textarea
+                    id="allergiesInput"
+                    class="form-textarea"
+                    placeholder="e.g., peanuts, shellfish, penicillin (or leave blank if none)"
+                  ></textarea>
+                  <p class="form-hint">Separate multiple allergies with commas</p>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">
+                    <i class="fas fa-notes-medical" style="color: #dc2626;"></i>
+                    Any existing medical conditions?
+                  </label>
+                  <textarea
+                    id="conditionsInput"
+                    class="form-textarea"
+                    placeholder="e.g., diabetes, hypertension (or leave blank if none)"
+                  ></textarea>
+                  <p class="form-hint">This helps us recommend safe remedies</p>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">
+                    <i class="fas fa-pills" style="color: #dc2626;"></i>
+                    Current medications?
+                  </label>
+                  <textarea
+                    id="medicationsInput"
+                    class="form-textarea"
+                    placeholder="e.g., aspirin, metformin (or leave blank if none)"
+                  ></textarea>
+                  <p class="form-hint">We'll check for potential interactions</p>
+                </div>
+
+                <button class="btn" onclick="saveUserProfile()">
+                  <i class="fas fa-check-circle"></i> Save Profile & Continue
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div id="chatScreen" class="screen clearfix">
+            </div>
+        </div>
+      </div>
+
+      <div class="input-container" id="inputContainer">
+        <div class="input-wrapper">
+          <button class="icon-btn plus-btn" onclick="toggleOptionsMenu()" title="Add attachments">
+            <i class="fas fa-plus"></i>
+          </button>
+    
+          <input
+            type="text"
+            id="userInput"
+            placeholder="Ask about symptoms, remedies, or health concerns..."
+            onkeypress="if(event.key === 'Enter') sendMessage()"
+          />
+    
+          <button id="recordButton" class="icon-btn mic-btn" onclick="toggleVoiceInput()" title="Voice input">
+              <i id="micIcon" class="fas fa-microphone"></i>
+          </button>
+    
+          <button id="sendButton" class="icon-btn send-btn" onclick="sendMessage()">
+            <i class="fas fa-paper-plane"></i>
+          </button>
+        </div>
+  
+        <div id="optionsMenu" class="options-menu hidden">
+          <div style="padding: 0.5rem 1rem; color: rgba(255,255,255,0.4); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px;">Skin Analysis</div>
+  
+          <button class="option-item" onclick="triggerSkinCamera(event)">
+            <i class="fas fa-camera"></i>
+            <span>Take Photo</span>
+          </button>
+  
+          <button class="option-item" onclick="triggerSkinImageUpload(event)">
+            <i class="fas fa-images"></i>
+            <span>Choose from Gallery</span>
+          </button>
+  
+          <div style="height: 1px; background: rgba(220,38,38,0.2); margin: 0.5rem 0;"></div>
+  
+          <div style="padding: 0.5rem 1rem; color: rgba(255,255,255,0.4); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px;">Lab Report</div>
+  
+          <button class="option-item" onclick="triggerLabCamera(event)">
+            <i class="fas fa-camera"></i>
+            <span>Take Photo</span>
+          </button>
+  
+          <button class="option-item" onclick="triggerLabReportUpload(event)">
+            <i class="fas fa-file-upload"></i>
+            <span>Upload Files</span>
+          </button>
+        </div>
+
+        <input type="file" id="hiddenSkinInput" accept="image/*" style="display: none;" onchange="handleDirectSkinUpload(event)" />
+        <input type="file" id="hiddenSkinInputCamera" accept="image/*" capture="environment" style="display: none;" onchange="handleDirectSkinUpload(event)" />
+
+        <input type="file" id="hiddenLabInput" multiple style="display: none;" onchange="handleDirectLabUpload(event)" />
+        <input type="file" id="hiddenLabInputCamera" accept="image/*" capture="environment" style="display: none;" onchange="handleDirectLabUpload(event)" />
+
+        <div id="loadingIcon" class="loading hidden">
+          <i class="fas fa-spinner fa-spin"></i>
+          <span>Analyzing your query...</span>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const baseUrl = "";
+      let userEmail = "";
+      let userProfile = null;
+      
+      // TTS variables
+      let currentAudio = null;
+      let isSpeaking = false;
+      let currentSpeakerBtn = null;
+      
+      // Voice input variables
+      let micStream = null;
+      let mediaRecorder = null;
+      let recognition = null;
+      let isRecording = false;
+
+      // Configure marked.js
+      marked.setOptions({ mangle: false, headerIds: false });
+
+      function showScreen(screenId) {
+        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+        document.getElementById(screenId).classList.add('active');
+      }
+
+      function parseProfileArray(data) {
+        if (Array.isArray(data)) return data;
+        if (typeof data === 'string') {
+          return data.split(',').map(item => item.trim()).filter(item => item);
+        }
+        return [];
+      }
+
+      function updateProfileDisplay() {
+        if (userProfile) {
+          const profileInfo = document.getElementById('profileInfo');
+          const profileName = document.getElementById('profileName');
+          const profileBadges = document.getElementById('profileBadges');
+          const editBtn = document.getElementById('editProfileBtn');
+    
+          profileName.textContent = userProfile.first_name || 'User';
+          const allergies = parseProfileArray(userProfile.allergies);
+          const conditions = parseProfileArray(userProfile. medical_conditions);
+    
+          let badges = '';
+    
+          // Age badge
+          if (userProfile. age) {
+            badges += `<div class="badge"><i class="fas fa-birthday-cake"></i> ${userProfile.age} yrs</div>`;
+          }
+    
+          // Allergies badge
+          if (allergies.length > 0) {
+            badges += `<div class="badge"><i class="fas fa-shield-alt"></i> Protected from ${allergies.length} allergen${allergies.length > 1 ? 's' : ''}</div>`;
+          }
+    
+          // Conditions badge
+          if (conditions.length > 0) {
+            badges += `<div class="badge"><i class="fas fa-notes-medical"></i> ${conditions. length} condition${conditions.length > 1 ? 's' :  ''}</div>`;
+          }
+    
+          profileBadges.innerHTML = badges;
+          profileInfo.classList.add('active');
+          editBtn.classList.add('active');
+        }
+      }
+
+
+      function editProfile() {
+        document.getElementById('onboardingTitle').textContent = 'Update Your Profile';
+        const allergies = parseProfileArray(userProfile.allergies);
+        const conditions = parseProfileArray(userProfile.medical_conditions);
+        const medications = parseProfileArray(userProfile.current_medications);
+  
+        document.getElementById('nameInput').value = userProfile.first_name || '';
+        document.getElementById('ageInput').value = userProfile.age || '';
+        document.getElementById('sexInput').value = userProfile.sex || '';
+        document.getElementById('allergiesInput').value = allergies.join(', ');
+        document.getElementById('conditionsInput').value = conditions.join(', ');
+        document.getElementById('medicationsInput').value = medications.join(', ');
+  
+        showScreen('onboardingScreen');
+        document.getElementById('inputContainer').classList.remove('active');
+      }
+
+      async function checkUserProfile() {
+        const email = document.getElementById("emailInput").value.trim();
+        if (!email || !email.includes("@")) {
+          alert("Please enter a valid email address");
+          return;
+        }
+
+        userEmail = email;
+        try {
+          const response = await fetch(`${baseUrl}/api/profile/profile/check_profile/`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email_id: email }),
+          });
+          const data = await response.json();
+
+          if (data.exists && data.is_complete) {
+            userProfile = data.profile;
+            updateProfileDisplay();
+            startChat();
+          } else {
+            showScreen("onboardingScreen");
+          }
+        } catch (error) {
+          console.error("Error:", error);
+          alert("Connection error. Please try again.");
+        }
+      }
+
+      async function saveUserProfile() {
+        const name = document.getElementById("nameInput").value.trim();
+        const age = document.getElementById("ageInput").value.trim();
+        const sex = document.getElementById("sexInput").value;
+        const allergies = document.getElementById("allergiesInput").value.trim();
+        const conditions = document. getElementById("conditionsInput").value.trim();
+        const medications = document.getElementById("medicationsInput").value.trim();
+  
+        if (!name) {
+          alert("Please enter your name");
+          return;
+        }
+
+        try {
+          const response = await fetch(`${baseUrl}/api/profile/profile/create_or_update_profile/`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              email_id: userEmail,
+              first_name: name,
+              age: age || null,
+              sex: sex || null,
+              allergies: allergies,
+              medical_conditions: conditions,
+              current_medications: medications,
+            }),
+          });
+          const data = await response.json();
+
+          if (data.success) {
+            userProfile = data.profile;
+            updateProfileDisplay();
+            startChat();
+          } else {
+            alert("Error saving profile.  Please try again.");
+          }
+        } catch (error) {
+          console.error("Error:", error);
+          alert("Connection error. Please try again.");
+        }
+      }
+
+
+      function startChat() {
+        showScreen("chatScreen");
+        document.getElementById("inputContainer").classList.add("active");
+
+        const chatScreen = document.getElementById("chatScreen");
+        
+        const allergies = parseProfileArray(userProfile.allergies);
+        
+        let welcomeMsg = `<div style="text-align: center; padding: 2rem;">
+          <div style="font-size: 3rem; margin-bottom: 1rem;">👋</div>
+          <h2 style="font-size: 1.5rem; margin-bottom: 0.5rem; color: #ffffff;">Welcome back, ${userProfile.first_name}!</h2>
+          <p style="color: rgba(255,255,255,0.6); margin-bottom: 1.5rem;">I'm ServVia, your personalized health companion</p>`;
+        if (allergies.length > 0) {
+          welcomeMsg += `<div style="display: inline-flex; align-items: center; gap: 0.5rem; background: rgba(220, 38, 38, 0.1); border: 1px solid rgba(220, 38, 38, 0.3); padding: 0.75rem 1.5rem; border-radius: 8px; margin-bottom: 1rem;">
+            <i class="fas fa-shield-alt" style="color: #dc2626;"></i>
+            <span style="color: #dc2626;">Protected from: ${allergies.join(", ")}</span>
+          </div>`;
+        }
+
+        welcomeMsg += `<p style="margin-top: 2rem; color: rgba(255,255,255,0.7);">How can I help you today?</p></div>`;
+        chatScreen.innerHTML = welcomeMsg;
+        document.getElementById("userInput").focus();
+      }
+
+      function addToChatWindow(sender, message) {
+        const chatScreen = document.getElementById("chatScreen");
+        const messageDiv = document.createElement("div");
+        messageDiv.className = `message ${sender === "user" ? "user-message" : "bot-message"}`;
+        
+        const contentDiv = document.createElement("div");
+        contentDiv.className = "message-content";
+        
+        if (sender === "bot") {
+          contentDiv.innerHTML = marked.parse(message);
+          
+          // Add speaker button for bot messages
+          const actionsDiv = document.createElement("div");
+          actionsDiv.className = "message-actions";
+          
+          const speakerBtn = document.createElement("button");
+          speakerBtn.className = "speaker-btn";
+          speakerBtn.innerHTML = '<i class="fas fa-volume-up"></i>';
+          speakerBtn.title = "Listen to response";
+          speakerBtn.onclick = () => toggleSpeech(message, speakerBtn);
+          
+          actionsDiv.appendChild(speakerBtn);
+          contentDiv.appendChild(actionsDiv);
+          
+        } else {
+          contentDiv.textContent = message;
+        }
+        
+        messageDiv.appendChild(contentDiv);
+        chatScreen.appendChild(messageDiv);
+        scrollChatToBottom();
+      }
+
+      async function sendMessage() {
+        const input = document.getElementById("userInput");
+        const message = input.value.trim();
+        
+        if (!message) return;
+        
+        input.value = "";
+        addToChatWindow("user", message);
+        
+        const loadingIcon = document.getElementById("loadingIcon");
+        loadingIcon.classList.remove("hidden");
+        const chatScreen = document.getElementById("chatScreen");
+        const loadingMsg = document.createElement("div");
+        loadingMsg.className = "message bot-message";
+        loadingMsg.id = "loadingMsg";
+        loadingMsg.innerHTML = '<div class="message-content"><i class="fas fa-spinner fa-spin"></i> Analyzing...</div>';
+        chatScreen.appendChild(loadingMsg);
+        scrollChatToBottom();
+        
+        try {
+          const response = await fetch(`${baseUrl}/api/chat/get_answer_for_text_query/`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              email_id: userEmail,
+              query: message,
+            }),
+          });
+          const data = await response.json();
+          
+          const loading = document.getElementById("loadingMsg");
+          if (loading) loading.remove();
+          loadingIcon.classList.add("hidden");
+          if (data.response) {
+            addToChatWindow("bot", data.response);
+          } else {
+            addToChatWindow("bot", "I couldn't generate a response. Please try again.");
+          }
+        } catch (error) {
+          console.error("Error:", error);
+          const loading = document.getElementById("loadingMsg");
+          if (loading) loading.remove();
+          loadingIcon.classList.add("hidden");
+          addToChatWindow("bot", "Connection error. Please try again.");
+        }
+      }
+
+      window.addEventListener("load", () => {
+        document.getElementById("emailInput").focus();
+      });
+      
+      // Toggle options menu
+      function toggleOptionsMenu() {
+        const menu = document.getElementById('optionsMenu');
+        menu.classList.toggle('hidden');
+      }
+      
+      document.addEventListener('click', function(event) {
+          const menu = document.getElementById('optionsMenu');
+          const plusButton = document.querySelector('.plus-btn');
+    
+          if (!menu.classList.contains('hidden')) {
+              const isClickInsideMenu = menu.contains(event.target);
+              const isClickOnPlusButton = plusButton && plusButton.contains(event.target);
+        
+              if (!isClickInsideMenu && !isClickOnPlusButton) {
+                  menu.classList.add('hidden');
+              }
+          }
+      });
+      
+      document.getElementById('optionsMenu').addEventListener('click', function(event) {
+          event.stopPropagation();
+      });
+
+    // ==========================================
+    // VOICE INPUT (Fixed Stream Handling)
+    // ==========================================
+
+    async function toggleVoiceInput() {
+        const micButton = document.querySelector('.mic-btn');
+        const micIcon = micButton.querySelector('i');
+        const userInput = document.getElementById('userInput');
+        const plusButton = document.querySelector('.plus-btn');
+        
+        // Local scoped variable for transcription results
+        let finalTranscript = '';
+
+        if (!isRecording) {
+            try {
+                micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                
+                // UI updates
+                isRecording = true;
+                micButton.classList.add('recording');
+                micButton.style.background = '#ff4444';
+                micIcon.classList.remove('fa-microphone');
+                micIcon.classList.add('fa-stop');
+                micButton.title = 'Stop Recording';
+                userInput.placeholder = 'Listening...';
+                if(plusButton) plusButton.disabled = true;
+                
+                // Web Speech API
+                if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+                    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                    recognition = new SpeechRecognition();
+                    recognition.continuous = true;
+                    recognition.interimResults = true;
+                    recognition.lang = 'en-US';
+
+                    recognition.onresult = (event) => {
+                        let interimTranscript = '';
+                        let currentFinal = '';
+                        for (let i = event.resultIndex; i < event.results.length; i++) {
+                            const result = event.results[i];
+                            if (result.isFinal) {
+                                currentFinal += result[0].transcript;
+                            } else {
+                                interimTranscript += result[0].transcript;
+                            }
+                        }
+                        
+                        // Accumulate final transcript
+                        finalTranscript += currentFinal;
+                        
+                        // Display
+                        if (userInput) {
+                            userInput.value = finalTranscript + interimTranscript;
+                        }
+                    };
+                    
+                    recognition.start();
+                }
+
+                // MediaRecorder for explicit stop handling
+                mediaRecorder = new MediaRecorder(micStream);
+                
+                mediaRecorder.onstop = () => {
+                    // Cleanup logic
+                    if (recognition) {
+                        recognition.stop();
+                    }
+
+                    // Stop the stream tracks properly
+                    if (micStream) {
+                        micStream.getTracks().forEach(track => track.stop());
+                        micStream = null;
+                    }
+
+                    // Reset UI
+                    isRecording = false;
+                    micButton.classList.remove('recording');
+                    micButton.style.background = '';
+                    micIcon.classList.remove('fa-stop');
+                    micIcon.classList.add('fa-microphone');
+                    micButton.title = 'Voice Input';
+                    userInput.placeholder = 'Ask about symptoms, remedies...';
+                    if(plusButton) plusButton.disabled = false;
+                    
+                    // Auto-send if we have text
+                    if (finalTranscript.trim().length > 0) {
+                         sendMessage();
+                    }
+                };
+                
+                mediaRecorder.start();
+
+            } catch (error) {
+                console.error('Microphone error:', error);
+                alert('Could not access microphone.');
+            }
+        } else {
+            // Stop recording
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+            }
+        }
+    }
+
+    // ==========================================
+    // TEXT-TO-SPEECH (Speaker Button)
+    // ==========================================
+
+    async function toggleSpeech(text, button) {
+        if (isSpeaking && currentSpeakerBtn === button) {
+            stopSpeech();
+            return;
+        }
+        if (isSpeaking) stopSpeech();
+        await speakText(text, button);
+    }
+
+    function stopSpeech() {
+        if (currentAudio) {
+            currentAudio.pause();
+            currentAudio = null;
+        }
+        if (window.speechSynthesis) window.speechSynthesis.cancel();
+        if (currentSpeakerBtn) {
+            currentSpeakerBtn.innerHTML = '<i class="fas fa-volume-up"></i>';
+            currentSpeakerBtn.classList.remove('speaking');
+            currentSpeakerBtn.title = "Listen to response";
+        }
+        isSpeaking = false;
+        currentSpeakerBtn = null;
+    }
+
+    async function speakText(text, button) {
+        // Clean text for speech
+        const cleanText = text
+            .replace(/#{1,6}\s/g, '')
+            .replace(/\*\*([^*]+)\*\*/g, '$1')
+            .replace(/\*([^*]+)\*/g, '$1')
+            .replace(/`([^`]+)`/g, '$1')
+            .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+            .replace(/\|/g, ', ')
+            .replace(/---+/g, '')
+            .replace(/-\s/g, ', ')
+            .replace(/\n+/g, '. ')
+            .replace(/[🔬📋🏥📊🔍💊⚠️✅❌🟢🟡🔴👤🎯📚🧠💪🥗🩺📌📈❓🚨⚡🌿⏰💧📅🔗👋ℹ️]/g, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+    
+        if (! cleanText) return;
+    
+        button.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        button.title = "Loading...";
+        currentSpeakerBtn = button;
+    
+        try {
+            // Step 1: Get first chunk for immediate playback (~2-3 seconds)
+            const firstResponse = await fetch(`${baseUrl}/api/chat/fast_audio/`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text: cleanText, mode: 'first' })
+            });
+            const firstData = await firstResponse.json();
+        
+            if (! firstData.success || !firstData.audio) {
+                throw new Error('First chunk failed');
+            }
+        
+            // Play first chunk immediately
+            currentAudio = base64ToAudio(firstData.audio);
+            isSpeaking = true;
+        
+            button.innerHTML = '<i class="fas fa-stop"></i>';
+            button.classList.add('speaking');
+            button.title = "Stop speaking";
+        
+            // Start playing first chunk
+            await currentAudio.play();
+        
+            // Step 2: If there's more content, load it in background
+            if (firstData.has_more) {
+                // Fetch remaining audio while first chunk plays
+                const remainingPromise = fetch(`${baseUrl}/api/chat/fast_audio/`, {
+                    method: 'POST',
+                    headers:  { 'Content-Type': 'application/json' },
+                    body: JSON. stringify({ text: cleanText, mode: 'remaining' })
+                }).then(r => r.json());
+            
+                // When first chunk ends, play remaining
+                currentAudio. onended = async () => {
+                    try {
+                        const remainingData = await remainingPromise;
+                    
+                        if (remainingData.success && remainingData.audio && isSpeaking) {
+                            currentAudio = base64ToAudio(remainingData.audio);
+                            currentAudio.onended = () => stopSpeech();
+                            currentAudio.onerror = () => stopSpeech();
+                            await currentAudio.play();
+                        } else {
+                            stopSpeech();
+                        }
+                    } catch (e) {
+                        console.error('Remaining audio error:', e);
+                        stopSpeech();
+                    }
+                };
+            } else {
+                // No more content, just stop when done
+                currentAudio.onended = () => stopSpeech();
+            }
+        
+            currentAudio.onerror = () => {
+                stopSpeech();
+                useBrowserTTS(cleanText, button);
+            };
+        
+        } catch (error) {
+            console. error('FastTTS error:', error);
+        
+            // Fallback to original endpoint
+            try {
+                const response = await fetch(`${baseUrl}/api/chat/synthesise_audio/`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email_id: userEmail, text: cleanText })
+                });
+                const data = await response. json();
+            
+                if (data. audio && ! data.error) {
+                    currentAudio = base64ToAudio(data.audio);
+                    isSpeaking = true;
+                
+                    button.innerHTML = '<i class="fas fa-stop"></i>';
+                    button.classList.add('speaking');
+                    button.title = "Stop speaking";
+                
+                    currentAudio.onended = () => stopSpeech();
+                    currentAudio. onerror = () => { stopSpeech(); useBrowserTTS(cleanText, button); };
+                    await currentAudio.play();
+                } else {
+                    throw new Error('Fallback failed');
+                }
+            } catch (fallbackError) {
+                console.error('All TTS failed:', fallbackError);
+                useBrowserTTS(cleanText, button);
+            }
+        }
+    }
+
+    // Helper function to convert base64 to Audio object
+    function base64ToAudio(base64String) {
+        const audioData = atob(base64String);
+        const arrayBuffer = new ArrayBuffer(audioData.length);
+        const view = new Uint8Array(arrayBuffer);
+        for (let i = 0; i < audioData.length; i++) {
+            view[i] = audioData.charCodeAt(i);
+        }
+        const blob = new Blob([arrayBuffer], { type: 'audio/mp3' });
+        return new Audio(URL.createObjectURL(blob));
+    }
+
+
+    function useBrowserTTS(text, button) {
+        if (!('speechSynthesis' in window)) {
+            button.innerHTML = '<i class="fas fa-volume-up"></i>';
+            button.classList.remove('speaking');
+            return;
+        }
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(text.substring(0, 1000));
+        utterance.lang = 'en-IN';
+        utterance.rate = 0.9;
+        utterance.onstart = () => {
+            isSpeaking = true;
+            currentSpeakerBtn = button;
+            button.innerHTML = '<i class="fas fa-stop"></i>';
+            button.classList.add('speaking');
+        };
+        utterance.onend = () => stopSpeech();
+        utterance.onerror = () => stopSpeech();
+        window.speechSynthesis.speak(utterance);
+    }
+
+
+      // Show/hide send button based on input
+      const userInput = document.getElementById('userInput');
+      const sendButton = document.getElementById('sendButton');
+
+      userInput.addEventListener('input', function() {
+        if (this.value.trim().length > 0) {
+          sendButton.classList.add('active');
+        } else {
+          sendButton.classList.remove('active');
+        }
+      });
+      
+      // Direct file upload functions
+      let selectedSkinImage = null;
+      let selectedLabReport = null;
+      
+      function triggerSkinImageUpload(event) {
+        if (event) event.stopPropagation();
+        document.getElementById('hiddenSkinInput').click();
+        document.getElementById('optionsMenu').classList.add('hidden');
+      }
+
+      // Camera functions for Skin Analysis
+      function triggerSkinCamera(event) {
+        if (event) event.stopPropagation();
+        document.getElementById('hiddenSkinInputCamera').click();
+        document.getElementById('optionsMenu').classList.add('hidden');
+      }
+
+      function triggerLabCamera(event) {
+        if (event) event.stopPropagation();
+        document.getElementById('hiddenLabInputCamera').click();
+        document.getElementById('optionsMenu').classList.add('hidden');
+      }
+
+      function triggerLabReportUpload(event) {
+        if (event) event.stopPropagation();
+        document.getElementById('hiddenLabInput').click();
+        document.getElementById('optionsMenu').classList.add('hidden');
+      }
+
+      function handleDirectSkinUpload(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+  
+        if (file.size > 5 * 1024 * 1024) {
+          alert('File size must be less than 5MB');
+          return;
+        }
+  
+        selectedSkinImage = file;
+  
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          const imagePreviewHTML = `
+            <div class="message user-message">
+              <div class="message-content">
+                <div style="text-align: center;">
+                  <img src="${e.target.result}" style="max-width: 300px; max-height: 300px; border-radius: 12px; margin-bottom: 1rem;" />
+                  <p>📸 Skin image uploaded</p>
+                </div>
+              </div>
+            </div>
+          `;
+          document.getElementById('chatScreen').insertAdjacentHTML('beforeend', imagePreviewHTML);
+          scrollChatToBottom();
+          analyzeSkinImageDirect();
+        };
+        reader.readAsDataURL(file);
+        event.target.value = '';
+      }
+
+      function handleDirectLabUpload(event) {
+        const files = event.target.files;
+        if (!files || files.length === 0) return;
+        
+        for (let file of files) {
+          if (file.size > 10 * 1024 * 1024) {
+            alert(`File ${file.name} is too large. Maximum size is 10MB`);
+            return;
+          }
+        }
+
+        selectedLabReport = Array.from(files);
+
+        let filePreviewHTML = `
+        <div class="message user-message">
+          <div class="message-content">
+            <div style="text-align: center;">
+              <i class="fas fa-file-medical" style="font-size: 3rem; color: #dc2626; margin-bottom: 0.5rem;"></i>
+              <p>📄 Uploaded ${files.length} file${files.length > 1 ? 's' : ''}:</p>
+              <ul style="list-style: none; padding: 0; margin-top: 0.5rem;">
+        `;
+        for (let file of files) {
+          const icon = file.type.includes('pdf') ? 'fa-file-pdf' : 'fa-image';
+          filePreviewHTML += `<li><i class="fas ${icon}"></i> ${file.name}</li>`;
+        }
+  
+        filePreviewHTML += `
+                </ul>
+              </div>
+            </div>
+          </div>
+        `;
+        document.getElementById('chatScreen').insertAdjacentHTML('beforeend', filePreviewHTML);
+        scrollChatToBottom();
+        analyzeLabReportDirect();
+        event.target.value = '';
+      }
+
+      async function analyzeSkinImageDirect() {
+        if (!selectedSkinImage) return;
+        const formData = new FormData();
+        formData.append('email_id', userEmail);
+        formData.append('image', selectedSkinImage);
+
+        const chatScreen = document.getElementById("chatScreen");
+        const analyzingMsg = document.createElement("div");
+        analyzingMsg.className = "message bot-message";
+        analyzingMsg.id = "analyzingSkinMsg";
+        analyzingMsg.innerHTML = `<div class="message-content">
+          <div style="display: flex; align-items: center; gap: 1rem;">
+              <i class="fas fa-spinner fa-spin" style="font-size: 1.5rem; color: #dc2626;"></i>
+              <div>
+                  <strong>🔬 Analyzing skin image...</strong>
+                  <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem; color: rgba(255,255,255,0.6);">
+                      Detecting condition, validating with Trust Engine...
+                  </p>
+              </div>
+          </div>
+      </div>`;
+        chatScreen.appendChild(analyzingMsg);
+        scrollChatToBottom();
+
+        const loadingIcon = document.getElementById("loadingIcon");
+        loadingIcon.classList.remove("hidden");
+
+        try {
+          const response = await fetch(`${baseUrl}/api/skin/analyze/`, {
+              method: 'POST',
+              body: formData
+          });
+          const data = await response.json();
+          document.getElementById("analyzingSkinMsg")?.remove();
+          loadingIcon.classList.add("hidden");
+
+          if (data.success) {
+              addToChatWindow("bot", data.recommendations);
+          } else {
+              addToChatWindow("bot", `❌ Error: ${data.error}\n\n${data.suggestion || ''}`);
+          }
+        } catch (error) {
+          console.error('Error:', error);
+          document.getElementById("analyzingSkinMsg")?.remove();
+          loadingIcon.classList.add("hidden");
+          addToChatWindow("bot", "Connection error. Please try again.");
+        }
+
+        selectedSkinImage = null;
+      }
+
+
+      async function analyzeLabReportDirect() {
+        if (!selectedLabReport || selectedLabReport.length === 0) return;
+        const formData = new FormData();
+        formData.append('email_id', userEmail);
+
+        for (let file of selectedLabReport) {
+          formData.append('report', file);
+        }
+
+        const chatScreen = document.getElementById("chatScreen");
+        const analyzingMsg = document.createElement("div");
+        analyzingMsg.className = "message bot-message";
+        analyzingMsg.id = "analyzingLabMsg";
+        analyzingMsg.innerHTML = `<div class="message-content">
+          <div style="display: flex; align-items: center; gap: 1rem;">
+              <i class="fas fa-spinner fa-spin" style="font-size: 1.5rem; color: #dc2626;"></i>
+              <div>
+                  <strong>📊 Analyzing ${selectedLabReport.length} lab report page${selectedLabReport.length > 1 ? 's' : ''}...</strong>
+                  <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem; color: rgba(255,255,255,0.6);">
+                      Extracting values, checking reference ranges, generating detailed analysis...
+                  </p>
+              </div>
+          </div>
+        </div>`;
+        chatScreen.appendChild(analyzingMsg);
+        scrollChatToBottom();
+
+        const loadingIcon = document.getElementById("loadingIcon");
+        loadingIcon.classList.remove("hidden");
+        try {
+          const response = await fetch(`${baseUrl}/api/lab-report/analyze/`, {
+            method: 'POST',
+            body: formData
+          });
+          const data = await response.json();
+
+          const analyzing = document.getElementById("analyzingLabMsg");
+          if (analyzing) analyzing.remove();
+          loadingIcon.classList.add("hidden");
+          if (data.success) {
+            // Use the detailed formatted_summary from backend
+            let result = data.summary || data.formatted_summary;
+            
+            // Add disclaimer if not already present
+            if (result && !result.includes('Medical Disclaimer')) {
+                result += `\n\n---\n\n⚠️ **Important Medical Disclaimer:** This AI-generated analysis is for educational purposes only. Always consult with your healthcare provider for proper medical interpretation and treatment decisions.`;
+            }
+
+            addToChatWindow("bot", result);
+          } else {
+            addToChatWindow("bot", `❌ Error: ${data.error}`);
+          }
+        } catch (error) {
+          console.error('Error:', error);
+          const analyzing = document.getElementById("analyzingLabMsg");
+          if (analyzing) analyzing.remove();
+          loadingIcon.classList.add("hidden");
+          addToChatWindow("bot", "Connection error. Please try again.");
+        }
+
+        selectedLabReport = null;
+      }
+
+      function scrollChatToBottom() {
+          const chatContainer = document.getElementById('chat');
+          setTimeout(() => {
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+          }, 100);
+      }
+    
+    </script>    
+</body>
+</html>

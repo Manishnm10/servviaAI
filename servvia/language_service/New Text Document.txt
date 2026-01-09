@@ -1,0 +1,532 @@
+"""
+ServVia Fast Text-to-Speech Service
+====================================
+Optimized TTS with parallel chunk processing for faster audio generation. 
+Maintains complete response without removing any sections. 
+
+Author: ServVia Team
+Version: 2.0.0
+"""
+
+import asyncio
+import hashlib
+import io
+import logging
+import os
+import re
+import uuid
+from pathlib import Path
+from typing import List, Optional, Tuple
+from dataclasses import dataclass
+
+from dotenv import load_dotenv
+load_dotenv()
+
+logger = logging.getLogger(__name__)
+
+# ==========================================
+# DEPENDENCIES
+# ==========================================
+
+# OpenAI client
+openai_client = None
+try:
+    from openai import OpenAI, AsyncOpenAI
+    api_key = os.getenv('OPENAI_API_KEY')
+    if api_key:
+        openai_client = OpenAI(api_key=api_key)
+        async_openai_client = AsyncOpenAI(api_key=api_key)
+        logger.info("✅ FastTTS: OpenAI client initialized")
+    else:
+        logger.warning("⚠️ FastTTS:  OpenAI API key not found")
+except ImportError:
+    logger.warning("⚠️ FastTTS: OpenAI not installed")
+
+# Pydub for audio concatenation
+PYDUB_AVAILABLE = False
+try:
+    from pydub import AudioSegment
+    PYDUB_AVAILABLE = True
+    logger.info("✅ FastTTS: pydub available for audio concatenation")
+except ImportError:
+    logger.warning("⚠️ FastTTS:  pydub not available - install with: pip install pydub")
+
+
+# ==========================================
+# CONFIGURATION
+# ==========================================
+
+@dataclass
+class FastTTSConfig:
+    """Configuration for Fast TTS Service"""
+    model:  str = "tts-1"           # tts-1 (fast) or tts-1-hd (quality)
+    voice: str = "nova"            # alloy, echo, fable, onyx, nova, shimmer
+    speed: float = 1.15            # 0.25 to 4.0 (1.15 = 15% faster)
+    response_format: str = "mp3"
+    chunk_size: int = 400          # Characters per chunk (smaller = more parallel)
+    max_parallel:  int = 5          # Max concurrent API calls
+    cache_enabled: bool = True
+    cache_dir: str = "tts_cache"
+    pause_between_chunks_ms: int = 150  # Pause between chunks in final audio
+
+
+# ==========================================
+# FAST TTS SERVICE
+# ==========================================
+
+class FastTTSService:
+    """
+    Optimized TTS service with parallel chunk processing. 
+    
+    Generates audio for complete responses by:
+    1. Cleaning text for natural speech (without removing content)
+    2. Splitting into optimal chunks
+    3. Generating audio for all chunks in parallel
+    4. Combining chunks into single audio file
+    5. Caching results for instant replay
+    """
+    
+    def __init__(self, config: FastTTSConfig = None):
+        self.config = config or FastTTSConfig()
+        
+        # Setup cache directory
+        if self.config.cache_enabled:
+            self.cache_dir = Path(self.config.cache_dir)
+            self.cache_dir.mkdir(exist_ok=True)
+        
+        logger.info(
+            f"FastTTSService initialized:  model={self.config.model}, "
+            f"voice={self. config.voice}, speed={self. config.speed}x, "
+            f"chunk_size={self.config.chunk_size}, max_parallel={self.config.max_parallel}"
+        )
+    
+    # =========================================================================
+    # TEXT PREPARATION (NO CONTENT REMOVAL)
+    # =========================================================================
+    
+    def clean_for_speech(self, text: str) -> str:
+        """
+        Clean text for natural speech WITHOUT removing any content.
+        Only removes formatting that sounds bad when spoken.
+        """
+        if not text:
+            return ""
+        
+        clean = text
+        
+        # Convert emojis to spoken equivalents (preserve meaning)
+        emoji_to_speech = {
+            '🌿': '',  # Silent - decorative
+            '⚠️': 'Warning.  ',
+            '🔬': '',  # Silent - decorative
+            '🏥': '',  # Silent - decorative
+            '💊': '',  # Silent - decorative
+            '🟢': 'High confidence. ',
+            '🟡': 'Medium confidence. ',
+            '🔴': 'Low confidence. ',
+            '📊': '',
+            '🎯': '',
+            '📋': '',
+            '🚨': 'Alert. ',
+            '✅': '',
+            '❌': '',
+            '👤': '',
+            '📚': '',
+            '🧠': '',
+            '💪': '',
+            '🥗': '',
+            '🩺': '',
+            '📌':  '',
+            '📈': '',
+            '❓': '',
+            '⚡': '',
+            '⏰': '',
+            '💧': '',
+            '📅': '',
+            '🔗': '',
+            '👋':  '',
+            '😊': '',
+            '🙏': '',
+        }
+        
+        for emoji, replacement in emoji_to_speech.items():
+            clean = clean.replace(emoji, replacement)
+        
+        # Remove remaining emojis (visual only)
+        emoji_pattern = re.compile(
+            "["
+            "\U0001F600-\U0001F64F"
+            "\U0001F300-\U0001F5FF"
+            "\U0001F680-\U0001F6FF"
+            "\U0001F1E0-\U0001F1FF"
+            "\U00002702-\U000027B0"
+            "\U000024C2-\U0001F251"
+            "\U0001F900-\U0001F9FF"
+            "\U0001FA00-\U0001FA6F"
+            "\U0001FA70-\U0001FAFF"
+            "\U00002600-\U000026FF"
+            "\U00002700-\U000027BF"
+            "]+",
+            flags=re.UNICODE
+        )
+        clean = emoji_pattern.sub('', clean)
+        
+        # Convert markdown to speech-friendly format (keep all text)
+        clean = re.sub(r'#{1,6}\s*', '', clean)  # Headers
+        clean = re.sub(r'\*\*([^*]+)\*\*', r'\1', clean)  # Bold
+        clean = re.sub(r'\*([^*]+)\*', r'\1', clean)  # Italic
+        clean = re.sub(r'__([^_]+)__', r'\1', clean)
+        clean = re.sub(r'_([^_]+)_', r'\1', clean)
+        
+        # Remove code formatting but keep content
+        clean = re. sub(r'```[\s\S]*?```', '', clean)
+        clean = re.sub(r'`([^`]+)`', r'\1', clean)
+        
+        # Keep link text, remove URL
+        clean = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', clean)
+        
+        # Remove images
+        clean = re.sub(r'!\[([^\]]*)\]\([^)]+\)', '', clean)
+        
+        # Clean table formatting (convert to readable format)
+        clean = re. sub(r'\|[-: ]+\|', '', clean)  # Table dividers
+        clean = re. sub(r'\|', ', ', clean)  # Table cells to commas
+        
+        # Remove horizontal rules
+        clean = re.sub(r'^\s*[-*_]{3,}\s*$', '. ', clean, flags=re. MULTILINE)
+        clean = clean.replace('---', '. ')
+        
+        # Convert bullet points to flowing text
+        clean = re.sub(r'^\s*[-*+]\s+', '', clean, flags=re.MULTILINE)
+        clean = re. sub(r'^\s*\d+\.\s+', '', clean, flags=re.MULTILINE)
+        
+        # Clean whitespace (convert newlines to pauses)
+        clean = re. sub(r'\n{2,}', '. ', clean)
+        clean = re.sub(r'\n', '. ', clean)
+        clean = re.sub(r'\s+', ' ', clean)
+        
+        # Clean up punctuation
+        clean = re.sub(r'\. {2,}', '. ', clean)
+        clean = re.sub(r'\.\s*\. ', '.', clean)
+        clean = re.sub(r',\s*,', ',', clean)
+        clean = re.sub(r':\s*:', ':', clean)
+        
+        # Handle encoding issues
+        clean = clean.encode('utf-8', errors='ignore').decode('utf-8')
+        
+        # Final cleanup
+        clean = clean.strip()
+        clean = re.sub(r'^[.,;:\s]+', '', clean)
+        
+        return clean
+    
+    def split_into_chunks(self, text: str) -> List[str]:
+        """
+        Split text into optimal chunks for parallel processing.
+        Splits at natural boundaries (sentences, paragraphs).
+        """
+        if len(text) <= self.config.chunk_size:
+            return [text] if text. strip() else []
+        
+        # Split by paragraphs first
+        paragraphs = text. split('. ')
+        
+        chunks = []
+        current_chunk = ""
+        
+        for para in paragraphs:
+            para = para.strip()
+            if not para:
+                continue
+            
+            # Add period back
+            if not para.endswith('.'):
+                para += '.'
+            
+            # If adding this paragraph keeps us under limit
+            if len(current_chunk) + len(para) + 1 <= self.config.chunk_size:
+                current_chunk += (" " if current_chunk else "") + para
+            else:
+                # Save current chunk and start new one
+                if current_chunk:
+                    chunks.append(current_chunk.strip())
+                
+                # Handle paragraph larger than chunk size
+                if len(para) > self.config.chunk_size:
+                    # Split large paragraph by words
+                    words = para.split()
+                    current_chunk = ""
+                    for word in words:
+                        if len(current_chunk) + len(word) + 1 <= self.config.chunk_size:
+                            current_chunk += (" " if current_chunk else "") + word
+                        else:
+                            if current_chunk:
+                                chunks.append(current_chunk.strip())
+                            current_chunk = word
+                else:
+                    current_chunk = para
+        
+        # Don't forget the last chunk
+        if current_chunk:
+            chunks. append(current_chunk.strip())
+        
+        logger.info(f"Split text into {len(chunks)} chunks (avg {sum(len(c) for c in chunks) // max(len(chunks), 1)} chars)")
+        
+        return chunks
+    
+    # =========================================================================
+    # AUDIO GENERATION
+    # =========================================================================
+    
+    async def _generate_chunk_audio(self, chunk: str, chunk_index: int) -> Tuple[int, Optional[bytes]]:
+        """Generate audio for a single chunk."""
+        try:
+            response = await async_openai_client.audio.speech.create(
+                model=self.config.model,
+                voice=self.config.voice,
+                input=chunk,
+                speed=self.config.speed,
+                response_format=self.config.response_format,
+            )
+            
+            audio_bytes = response.content
+            logger.debug(f"Chunk {chunk_index}:  {len(chunk)} chars -> {len(audio_bytes)} bytes")
+            
+            return (chunk_index, audio_bytes)
+            
+        except Exception as e:
+            logger.error(f"Failed to generate chunk {chunk_index}: {e}")
+            return (chunk_index, None)
+    
+    async def _generate_parallel(self, chunks: List[str]) -> List[bytes]:
+        """Generate audio for all chunks in parallel."""
+        # Semaphore to limit concurrent requests
+        semaphore = asyncio.Semaphore(self. config.max_parallel)
+        
+        async def limited_generate(chunk:  str, index: int):
+            async with semaphore: 
+                return await self._generate_chunk_audio(chunk, index)
+        
+        # Create tasks for all chunks
+        tasks = [limited_generate(chunk, i) for i, chunk in enumerate(chunks)]
+        
+        logger.info(f"Generating {len(tasks)} chunks in parallel (max {self.config.max_parallel} concurrent)...")
+        
+        # Run all tasks concurrently
+        results = await asyncio.gather(*tasks)
+        
+        # Sort by index and extract audio bytes
+        results.sort(key=lambda x: x[0])
+        audio_chunks = [r[1] for r in results if r[1] is not None]
+        
+        logger.info(f"Generated {len(audio_chunks)}/{len(chunks)} audio chunks successfully")
+        
+        return audio_chunks
+    
+    def _combine_audio_chunks(self, audio_chunks: List[bytes]) -> bytes:
+        """Combine multiple audio chunks into a single audio file."""
+        if not audio_chunks:
+            raise ValueError("No audio chunks to combine")
+        
+        if len(audio_chunks) == 1:
+            return audio_chunks[0]
+        
+        if not PYDUB_AVAILABLE: 
+            logger.warning("pydub not available, returning first chunk only")
+            return audio_chunks[0]
+        
+        # Combine using pydub
+        combined = AudioSegment.empty()
+        pause = AudioSegment.silent(duration=self.config.pause_between_chunks_ms)
+        
+        for i, chunk_bytes in enumerate(audio_chunks):
+            try:
+                chunk_audio = AudioSegment.from_mp3(io.BytesIO(chunk_bytes))
+                
+                if i > 0:
+                    combined += pause
+                
+                combined += chunk_audio
+                
+            except Exception as e:
+                logger.error(f"Failed to process audio chunk {i}: {e}")
+                continue
+        
+        # Export combined audio
+        output_buffer = io.BytesIO()
+        combined.export(output_buffer, format="mp3")
+        output_buffer.seek(0)
+        
+        combined_bytes = output_buffer.read()
+        logger.info(f"Combined {len(audio_chunks)} chunks into {len(combined_bytes)} bytes")
+        
+        return combined_bytes
+    
+    # =========================================================================
+    # CACHING
+    # =========================================================================
+    
+    def _get_cache_key(self, text: str) -> str:
+        """Generate unique cache key."""
+        config_str = f"{self.config.model}_{self.config.voice}_{self.config.speed}"
+        content = f"{config_str}:{text}"
+        return hashlib. md5(content.encode()).hexdigest()[:20]
+    
+    def _get_cached(self, text: str) -> Optional[bytes]: 
+        """Get cached audio if available."""
+        if not self.config.cache_enabled:
+            return None
+        
+        cache_file = self.cache_dir / f"{self._get_cache_key(text)}.mp3"
+        
+        if cache_file.exists():
+            logger.info(f"TTS cache hit:  {cache_file. name}")
+            return cache_file.read_bytes()
+        
+        return None
+    
+    def _save_to_cache(self, text: str, audio:  bytes):
+        """Save audio to cache."""
+        if not self.config.cache_enabled:
+            return
+        
+        cache_file = self.cache_dir / f"{self._get_cache_key(text)}.mp3"
+        cache_file. write_bytes(audio)
+        logger.info(f"TTS cached: {cache_file.name} ({len(audio)} bytes)")
+    
+    # =========================================================================
+    # MAIN API
+    # =========================================================================
+    
+    async def generate_fast(self, text: str) -> Optional[bytes]:
+        """
+        Generate TTS audio using parallel processing.
+        
+        Args:
+            text: Full response text (complete, no truncation)
+            
+        Returns: 
+            Audio bytes (MP3 format) or None if failed
+        """
+        if not async_openai_client:
+            logger.error("OpenAI client not available")
+            return None
+        
+        original_length = len(text)
+        
+        # Check cache first
+        cached = self._get_cached(text)
+        if cached:
+            return cached
+        
+        # Clean text for speech
+        clean_text = self.clean_for_speech(text)
+        logger.info(f"FastTTS: {original_length} chars -> {len(clean_text)} chars (cleaned)")
+        
+        if not clean_text or len(clean_text) < 2:
+            logger.warning("Text too short for TTS")
+            return None
+        
+        # Split into chunks
+        chunks = self.split_into_chunks(clean_text)
+        
+        if not chunks:
+            logger.warning("No valid chunks generated")
+            return None
+        
+        import time
+        start_time = time. time()
+        
+        if len(chunks) == 1:
+            # Single chunk - direct generation
+            _, audio = await self._generate_chunk_audio(chunks[0], 0)
+            if audio:
+                self._save_to_cache(text, audio)
+                elapsed = time.time() - start_time
+                logger.info(f"FastTTS completed:  1 chunk in {elapsed:.2f}s")
+                return audio
+            return None
+        
+        # Multiple chunks - parallel generation
+        audio_chunks = await self._generate_parallel(chunks)
+        
+        if not audio_chunks: 
+            logger.error("Failed to generate any audio chunks")
+            return None
+        
+        # Combine chunks
+        combined_audio = self._combine_audio_chunks(audio_chunks)
+        
+        elapsed = time.time() - start_time
+        logger.info(f"FastTTS completed: {len(chunks)} chunks in {elapsed:.2f}s ({len(combined_audio)} bytes)")
+        
+        # Cache the result
+        self._save_to_cache(text, combined_audio)
+        
+        return combined_audio
+    
+    def generate_fast_sync(self, text: str) -> Optional[bytes]:
+        """Synchronous wrapper for generate_fast."""
+        return asyncio.run(self.generate_fast(text))
+    
+    async def generate_to_file(self, text: str, output_path: str = None) -> Optional[str]:
+        """
+        Generate TTS audio and save to file. 
+        
+        Args:
+            text: Full response text
+            output_path: Optional output file path (auto-generated if not provided)
+            
+        Returns:
+            Path to generated audio file or None if failed
+        """
+        audio_bytes = await self.generate_fast(text)
+        
+        if not audio_bytes:
+            return None
+        
+        if not output_path:
+            output_path = f"response_{uuid.uuid4()}.mp3"
+        
+        with open(output_path, "wb") as f:
+            f.write(audio_bytes)
+        
+        logger.info(f"FastTTS saved to: {output_path}")
+        return output_path
+
+
+# ==========================================
+# GLOBAL INSTANCE
+# ==========================================
+
+# Create with optimized settings
+fast_tts_config = FastTTSConfig(
+    model="tts-1",        # Fast model (use tts-1-hd for quality)
+    voice="nova",         # Clear, natural voice
+    speed=1.15,           # 15% faster playback
+    chunk_size=400,       # Smaller chunks = more parallelism
+    max_parallel=5,       # 5 concurrent API calls
+    cache_enabled=True,
+    pause_between_chunks_ms=100,  # Small pause between chunks
+)
+
+fast_tts_service = FastTTSService(fast_tts_config)
+
+
+# ==========================================
+# CONVENIENCE FUNCTIONS
+# ==========================================
+
+async def generate_fast_tts(text: str) -> Optional[bytes]:
+    """Generate TTS audio using parallel processing."""
+    return await fast_tts_service.generate_fast(text)
+
+
+def generate_fast_tts_sync(text: str) -> Optional[bytes]:
+    """Synchronous version of generate_fast_tts."""
+    return fast_tts_service.generate_fast_sync(text)
+
+
+async def generate_fast_tts_file(text: str, output_path: str = None) -> Optional[str]:
+    """Generate TTS audio and save to file."""
+    return await fast_tts_service. generate_to_file(text, output_path)

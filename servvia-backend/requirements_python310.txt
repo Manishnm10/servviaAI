@@ -1,0 +1,92 @@
+# Core Django
+Django==4.1.5
+djangorestframework==3.13.1
+djangorestframework-simplejwt==5.2.2
+django-cors-headers==3.13.0
+django-filter==22.1
+django-extensions==3.1.5
+django-environ==0.9.0
+django_debug_toolbar==3.8.1
+django-configurations==2.3.2
+django-apscheduler==0.6.2
+django-nose==1.4.7
+django-rest-framework-braces==0.3.4
+django_celery_beat
+django-storages
+
+# API Documentation
+drf-spectacular==0.22.1
+drf-spectacular-sidecar==2022.7.1
+drf-yasg==1.20.0
+drf-generators==0.5.0
+
+# Database
+psycopg2-binary
+pgvector==0.2.4
+
+# Celery & Redis
+celery==5.3.6
+redis==5.0.1
+flower==2.0.1
+
+# AI & ML (Python 3.10 compatible versions)
+openai==1.30.3
+langchain==0.1.1
+langchain-community==0.0.20
+langchain-core==0.1.23
+tiktoken==0.5.2
+torch==2.2.2
+torchvision==0.17.2
+transformers==4.42.3
+sentence-transformers
+qdrant-client==1.9.1
+
+# Data Processing
+pandas==2.2.2
+numpy==1.26.4
+openpyxl==3.1.5
+xlrd==2.0.1
+python-docx==1.1.2
+python-pptx==0.6.23
+pypdf==4.2.0
+pdf2image==1.17.0
+pdfplumber==0.11.1
+pytesseract==0.3.10
+
+# Utilities
+requests==2.32.3
+python-dotenv==1.0.0
+python-dateutil==2.9.0.post0
+pytz==2024.1
+Pillow==10.4.0
+beautifulsoup4==4.12.3
+lxml==5.2.2
+cryptography
+pydantic==1.10.14
+PyJWT==2.4.0
+
+# Cloud Storage
+boto3
+azure-storage-blob
+azure-core
+dropbox
+
+# Video Processing
+yt-dlp
+moviepy==1.0.3
+
+# Google Cloud
+google-cloud-vision==3.7.2
+google-api-python-client==2.119.0
+
+# Testing
+pytest==7.2.0
+pytest-django==4.5.2
+factory-boy==3.2.1
+Faker==16.6.0
+
+# Other
+phonenumbers==8.13.15
+python-magic==0.4.27
+jq
+emoji==2.12.1

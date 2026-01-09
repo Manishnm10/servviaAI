@@ -1,0 +1,5 @@
+Requirement already satisfied: typing-extensions in c:\users\cools\appdata\local\programs\python\python310\lib\site-packages (4.5.0)
+Requirement already satisfied: pillow in c:\users\cools\appdata\local\programs\python\python310\lib\site-packages (10.0.0)
+Collecting 0
+  Downloading 0-0.0.0-py2.py3-none-any.whl.metadata (702 bytes)
+Requirement already satisfied: jsonschema in c:\users\cools\appdata\local\programs\python\python310\lib\site-packages (4.17.3)

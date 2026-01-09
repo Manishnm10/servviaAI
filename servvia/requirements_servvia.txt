@@ -1,0 +1,38 @@
+# Servvia Healthcare Platform - Additional Requirements
+# Add these to your existing requirements.txt
+
+# Kafka & Streaming
+kafka-python==2.0.2
+confluent-kafka==2.3.0
+aiokafka==0.10.0
+
+# Neural Networks & ML
+tensorflow==2.15.0
+torch==2.1.2
+torchvision==0.16.2
+scikit-learn==1.4.0
+
+# Computer Vision
+opencv-python==4.9.0.80
+pillow==10.2.0
+
+# Medical Image Processing
+pydicom==2.4.4
+SimpleITK==2.3.1
+
+# Vector Database & Embeddings
+sentence-transformers==2.3.1
+chromadb==0.4.22
+langchain==0.1.6
+
+# Healthcare Libraries
+python-hl7==0.4.5
+fhir.resources==7.1.0
+heartpy==1.2.7
+biosppy==2.2.2
+
+# OCR
+pytesseract==0.3.10
+
+# Monitoring
+prometheus-client==0.19.0
