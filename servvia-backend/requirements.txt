@@ -13,6 +13,7 @@ attrs==21.4.0
 backoff==2.2.1
 beautifulsoup4==4.12.3
 billiard==4.2.0
+biopython==1.82
 CacheControl==0.12.11
 cachetools==5.3.3
 cachy==0.3.0
@@ -52,6 +53,7 @@ django-environ==0.9.0
 django-extensions==3.1.5
 django-filter==22.1
 django-nose==1.4.7
+django-redis==5.4.0
 django-rest-framework-braces==0.3.4
 django_debug_toolbar==3.8.1
 djangorestframework==3.13.1
@@ -114,11 +116,13 @@ keyring==23.13.1
 kiwisolver==1.4.5
 kombu==5.3.5
 langchain==0.1.1
+langchain-openai==0.0.5
 layoutparser==0.3.4
 langchain-community==0.0.20
 langchain-core==0.1.23
 langchainplus-sdk==0.0.16
 langdetect==1.0.9
+langgraph==0. 0.40
 langsmith==0.0.87
 lazy-object-proxy==1.7.1
 lockfile==0.12.2
@@ -136,6 +140,7 @@ msgpack==1.0.4
 multidict==6.0.4
 mypy-extensions==1.0.0
 mysql-connector-python==8.0.28
+neo4j==5.14.0
 nest-asyncio==1.6.0
 nltk==3.8.1
 networkx==3.3
