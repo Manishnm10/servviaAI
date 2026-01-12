@@ -433,12 +433,13 @@ def extract_entities(query: str) -> Dict[str, List[str]]:
 
         # Add these to the condition_keywords dictionary in extract_entities function: 
 
+        'mouth injury': ['cut in mouth', 'cut on lip', 'cut on inner lip', 'bit my lip', 'bit my tongue', 'tongue cut', 'lip cut', 'mouth cut', 'bleeding lip', 'bleeding mouth'],
+        'cold sore': ['cold sore', 'fever blister', 'herpes labialis', 'herpes on lip'],
         'wound': ['wound', 'cut', 'bleeding', 'injury', 'injured', 'hurt', 'punched', 'hit', 'bruise', 'bruised', 'laceration', 'gash'],
         'burns': ['burn', 'burnt', 'burned', 'scalded', 'scald'],
         'bleeding': ['bleeding', 'blood', 'bleed', 'hemorrhage'],
         'bruise': ['bruise', 'bruised', 'contusion', 'black eye', 'swelling from hit'],
-        'mouth injury': ['mouth bleeding', 'bleeding mouth', 'cut in mouth', 'mouth wound', 'lip cut', 'tongue cut', 'gum bleeding'],
-
+      
     }
     
     for condition, keywords in condition_keywords.items():
@@ -446,8 +447,11 @@ def extract_entities(query: str) -> Dict[str, List[str]]:
             if keyword in query_lower:
                 if condition not in conditions:
                     conditions.append(condition)
+                    # If we found a specific match (mouth injury), prioritize it
+                    if condition == 'mouth injury':
+                        conditions = [condition] + [c for c in conditions if c != condition]
                 break
-        
+    
     # Herbs
     herbs = []
     herb_list = [
@@ -525,12 +529,12 @@ def extract_query_subject(query:  str, user_profile: Dict = None) -> Dict:
     # CHILD PATTERNS
     # ==========================================================================
     child_patterns = [
-        # "my X year old child/son/daughter/baby/kid"
-        (r'my\s+(\d{1,2})\s*(?:year|yr|years|yrs)?\s*(?:-|\s)?old\s+(child|son|daughter|kid|boy|girl|baby|infant|toddler)', 'child_with_age'),
+        # "my X year old child/son/daughter/baby/kid/brother/sister"
+        (r'my\s+(\d{1,2})\s*(?:year|yr|years|yrs)?\s*(?:-|\s)?old\s+(child|son|daughter|kid|boy|girl|baby|infant|toddler|brother|sister)', 'child_with_age'),
         # "X year old child" (without "my")
-        (r'(\d{1,2})\s*(?:year|yr|years|yrs)?\s*(?:-|\s)?old\s+(child|son|daughter|kid|boy|girl|baby|infant|toddler)', 'child_with_age_no_my'),
-        # "for my child/son/daughter" with age
-        (r'for\s+my\s+(\d{1,2})\s*(?:year|yr|years|yrs)?\s*(?:-|\s)?old\s+(child|son|daughter|kid|boy|girl)', 'child_with_age'),
+        (r'(\d{1,2})\s*(?:year|yr|years|yrs)?\s*(?:-|\s)?old\s+(child|son|daughter|kid|boy|girl|baby|infant|toddler|brother|sister)', 'child_with_age_no_my'),
+        # "for my child/son/daughter/brother/sister" with age
+        (r'for\s+my\s+(\d{1,2})\s*(?:year|yr|years|yrs)?\s*(?:-|\s)?old\s+(child|son|daughter|kid|boy|girl|brother|sister)', 'child_with_age'),
         # "my baby" (assume infant < 2)
         (r'\bmy\s+(baby|infant)\b', 'infant'),
         # "my toddler" (assume 2-4 years)
@@ -544,9 +548,11 @@ def extract_query_subject(query:  str, user_profile: Dict = None) -> Dict:
     ]
     
     for pattern, subject_type in child_patterns:
+        logger.info(f"🔍 Trying pattern: {pattern[: 50]}...  for query: {query_lower}")
         try:
             match = re.search(pattern, query_lower)
             if match:
+                logger. info(f"✅ PATTERN MATCHED!  Groups: {match.groups()}")
                 subject_context['is_self'] = False
                 groups = match.groups()
                 
@@ -557,7 +563,7 @@ def extract_query_subject(query:  str, user_profile: Dict = None) -> Dict:
                 for group in groups:
                     if group and group.isdigit():
                         age = int(group)
-                    elif group and group in ['child', 'son', 'daughter', 'kid', 'boy', 'girl', 'baby', 'infant', 'toddler']:
+                    elif group and group in ['child', 'son', 'daughter', 'kid', 'boy', 'girl', 'baby', 'infant', 'toddler', 'brother', 'sister']:
                         relation = group
                 
                 # Handle different subject types
@@ -589,14 +595,18 @@ def extract_query_subject(query:  str, user_profile: Dict = None) -> Dict:
                         subject_context['subject_description'] = f'{age}-year-old'
                     
                     # Set sex if determinable
-                    if relation in ['son', 'boy']: 
+                    if relation in ['son', 'boy', 'brother']: 
                         subject_context['sex_override'] = 'male'
-                        subject_context['relationship'] = 'son'
-                    elif relation in ['daughter', 'girl']: 
+                        subject_context['relationship'] = relation
+                        logger.info(f"🔍 DEBUG: Set relationship to '{relation}' (male)")
+                    elif relation in ['daughter', 'girl', 'sister']:  
                         subject_context['sex_override'] = 'female'
-                        subject_context['relationship'] = 'daughter'
+                        subject_context['relationship'] = relation
+                        logger.info(f"🔍 DEBUG:  Set relationship to '{relation}' (female)")
                     else:
                         subject_context['relationship'] = relation or 'child'
+                        logger.info(f"🔍 DEBUG:  Defaulted relationship to '{subject_context['relationship']}' (relation was:  {relation})")
+
                         
                 elif subject_type == 'infant':
                     subject_context['age_override'] = 1
@@ -655,17 +665,20 @@ def extract_query_subject(query:  str, user_profile: Dict = None) -> Dict:
             if match: 
                 subject_context['is_self'] = False
                 groups = match.groups()
-                
+
+                logger.info(f"🔍 DEBUG:  Pattern matched:  {pattern}")
+                logger.info(f"🔍 DEBUG:  Groups extracted: {groups}")
+
                 age = None
                 relation = None
-                
+
+                # Extract age and relation from groups
                 for group in groups:
                     if group and group.isdigit():
                         age = int(group)
-                    elif group and group in ['mother', 'mom', 'mum', 'father', 'dad', 'parent', 
-                                            'grandmother', 'grandma', 'grandfather', 'grandpa', 
-                                            'granny', 'nana', 'papa']: 
+                    elif group and group in ['child', 'son', 'daughter', 'kid', 'boy', 'girl', 'baby', 'infant', 'toddler', 'brother', 'sister']:
                         relation = group
+
                 
                 if subject_type == 'elderly_with_age' and age:
                     subject_context['age_override'] = age
@@ -963,8 +976,17 @@ def execute_rag_pipeline(
     # ==========================================================================
     current_entities = extract_entities(original_query)
     logger.info(f"Extracted entities: {current_entities}")
+
+    # ==========================================================================
+    # INITIALIZE EFFECTIVE DEMOGRAPHICS (will be overridden if asking for other)
+    # ==========================================================================
+    effective_age = user_age
+    effective_sex = user_sex
+    effective_age_group = user_age_group
+    effective_subject = None
+
     
-        # ==========================================================================
+    # ==========================================================================
     # STEP 2.5:  DETECT IF ASKING ABOUT SOMEONE ELSE (Child, Parent, etc.)
     # ==========================================================================
     query_subject = extract_query_subject(original_query, user_profile)
@@ -1070,10 +1092,17 @@ def execute_rag_pipeline(
         if query_subject.get('sex_override'):
             user_profile['sex'] = query_subject['sex_override']
         
-        # Update local variables
+        # Update local variables AND effective demographics
         user_age = query_subject['age_override']
-        user_sex = query_subject. get('sex_override') or (user_profile.get('sex') if user_profile else None)
+        user_sex = query_subject.get('sex_override') or (user_profile.get('sex') if user_profile else None)
         user_age_group = query_subject['age_group_override']
+
+        # Set effective demographics for response generation
+        effective_age = user_age
+        effective_sex = user_sex
+        effective_age_group = user_age_group
+        effective_subject = query_subject['subject_description']
+
         
         # Store/update this context for future follow-up queries
         if CONVERSATION_ENABLED and conversation_manager and email_id:
@@ -1088,6 +1117,17 @@ def execute_rag_pipeline(
             )
     else:
         logger.info(f"📋 Query is about the user themselves (age: {user_age})")
+    
+        # Ensure asking_for_other is explicitly set to False for clarity
+        if user_profile:
+            user_profile = user_profile.copy()
+        else:
+            user_profile = {}
+    
+        user_profile['asking_for_other'] = False
+        user_profile['query_subject'] = None
+        user_profile['relationship'] = None
+
 
     # ==========================================================================
     # LOG EFFECTIVE PROFILE
@@ -1097,6 +1137,19 @@ def execute_rag_pipeline(
         logger.info(f"📋 User's own allergies still apply: {allergies}")
     else:
         logger.info(f"📋 Profile - Allergies: {allergies}, Conditions: {profile_conditions}, Meds: {profile_medications}, Age: {user_age}, Sex: {user_sex}, Age Group: {user_age_group}")
+
+
+    # ==========================================================================
+    # LOG EFFECTIVE PROFILE
+    # ==========================================================================
+    logger.info(f"📊 EFFECTIVE DEMOGRAPHICS - Age: {effective_age}, Sex: {effective_sex}, Age Group: {effective_age_group}")
+
+    if user_profile and user_profile.get('asking_for_other'):
+        logger.info(f"📋 Profile (ASKING FOR {user_profile. get('relationship', 'other').upper()}) - Age: {user_profile.get('age')}, Sex: {user_profile. get('sex')}, Subject: {user_profile.get('query_subject')}")
+        logger.info(f"📋 User's own allergies still apply: {allergies}")
+    else:
+        logger.info(f"📋 Profile - Allergies: {allergies}, Conditions: {profile_conditions}, Meds: {profile_medications}, Age: {user_age}, Sex: {user_sex}, Age Group: {user_age_group}")
+
 
     # ==========================================================================
     # STEP 3: UPDATE CONVERSATION CONTEXT

@@ -26,7 +26,7 @@ urlpatterns = [
     # ============================================================
     path("chat/synthesise_audio/", synthesise_audio, name="synthesise-audio"),
     path("chat/fast_audio/", fast_audio, name="fast-audio"),
-    path("/synthesise_audio/", synthesise_audio, name="synthesise-audio"),
+    path("synthesise_audio/", synthesise_audio, name="synthesise-audio"),
     path("speech/synthesize/", synthesise_audio, name="speech-synthesize"),
 
     # ============================================================

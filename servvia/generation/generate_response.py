@@ -32,6 +32,74 @@ except ImportError:
     CONVERSATION_ENABLED = False
 
 
+def create_personalized_greeting(user_name, user_age, user_sex, condition, query_subject=None, asking_for_other=False, relationship=None):
+    """
+    Generate a warm, personalized greeting based on user context
+    """
+    # If asking about someone else
+    if asking_for_other and query_subject:
+        # query_subject is a STRING description like "18-year-old" or "18-year-old brother"
+        
+        greeting = f"👋 Hi {user_name}! "
+        
+        if relationship:
+            if user_age:
+                if user_age < 2:
+                    greeting += f"I understand you're concerned about your {relationship}.  Caring for an infant requires gentle, safe remedies. "
+                elif user_age < 12:
+                    greeting += f"I can help with remedies for your {user_age}-year-old {relationship}. Children need special age-appropriate care. "
+                elif user_age >= 65:
+                    greeting += f"I'll suggest gentle remedies for your {relationship}.  Seniors benefit from careful, mild treatments. "
+                else:
+                    greeting += f"Let me help with remedies for your {user_age}-year-old {relationship}. "
+            else:
+                greeting += f"Let me help with remedies for your {relationship}. "
+        else:
+            greeting += f"Let me help with remedies for {query_subject}. "
+            
+        return greeting + "\n\n"
+    
+    # Regular greeting for user themselves
+    greeting = f"👋 Hi {user_name}! "
+    
+    # Age-specific empathy
+    if user_age:  
+        if user_age < 2:
+            greeting += "I see this is for an infant. Let me provide gentle, safe remedies. "
+        elif user_age < 12:
+            greeting += f"For a {user_age}-year-old child, we need age-appropriate remedies. "
+        elif user_age < 18:
+            greeting += f"As a {user_age}-year-old, here are safe remedies for you. "
+        elif user_age >= 65:
+            greeting += f"At {user_age}, gentle remedies work best. Let me help you.  "
+        else:
+            greeting += "I'm here to help you feel better. "
+    else:
+        greeting += "I'm here to help you feel better.  "
+    
+    # Condition-specific empathy
+    if condition:
+        condition_lower = condition.lower()
+        condition_empathy = {
+            'flu': "Flu can really knock you down. ",
+            'cold': "Sorry you're feeling under the weather. ",
+            'headache': "Headaches can be so disruptive. ",
+            'fever': "Fever means your body is fighting hard. ",
+            'cough': "A persistent cough is exhausting. ",
+            'sore throat': "A sore throat is painful.  ",
+            'cut': "Cuts need proper care to heal well. ",
+            'wound': "Proper wound care is important. ",
+            'burn': "Burns need careful treatment. ",
+            'lip': "Lip injuries can be uncomfortable. ",
+        }
+        
+        for key, message in condition_empathy.items():
+            if key in condition_lower:
+                greeting += message
+                break
+    
+    return greeting + "\n\n"
+
 @sync_to_async
 def get_user_profile_from_db(email_id: str) -> Optional[Dict]:
     """
@@ -662,6 +730,22 @@ PREFER simple, kitchen-based home remedies over complex supplements:
 - If user asks for 'simple' or 'home' remedy, use only kitchen ingredients
 - Focus on remedies that can be made with common household items
 
+=== CRITICAL ALLERGEN RULE ===
+
+🚨 ABSOLUTE RULE: DO NOT include ANY remedy that contains {', '.join(allergies) if allergies else 'allergens'}
+
+This means:
+- Do NOT list a remedy and say "avoid due to allergy"
+- Do NOT mention the allergen at all in any remedy
+- Do NOT include it in ingredients, preparation, or why it works
+- Simply SKIP that remedy entirely and provide a different one
+
+If a common remedy uses {', '.join(allergies) if allergies else 'an allergen'}, find a DIFFERENT remedy instead. 
+
+WRONG:  "🌿 Remedy 5: Honey-Lemon Water (Avoid due to allergy)"
+RIGHT: Skip it entirely, provide "Warm Lemon Water" or a completely different remedy
+
+=== RESPONSE FORMAT ===
 === RESPONSE FORMAT ===
 
 {"START YOUR RESPONSE WITH: 'For a " + str(user_age) + "-year-old " + (age_safety. get('age_category', '') if age_safety else '') + "...' " if user_age and user_age < 18 else ""}
@@ -843,7 +927,27 @@ async def generate_query_response(
         response_map["response_gen_retries"] = retries
         
         if generated_response:
-            response_map["response"] = generated_response. choices[0].message.content
+            llm_response = generated_response. choices[0].message.content
+    
+            # PREPEND PERSONALIZED GREETING
+            # Extract condition string safely
+            condition_str = conversation_context.get('current_condition', '') if conversation_context else ''
+            if not condition_str:
+                condition_str = original_query
+
+            personalized_greeting = create_personalized_greeting(
+                user_name=name,
+                user_age=effective_age,
+                user_sex=user_profile.get('sex') if user_profile else None,
+                condition=condition_str,
+                query_subject=subject_description if is_asking_for_other else None,
+                asking_for_other=is_asking_for_other,
+                relationship=user_profile.get('relationship') if user_profile else None
+            )
+
+    
+            response_map["response"] = personalized_greeting + llm_response
+
             
             # Extract usage stats
             usage = getattr(generated_response, "usage", None)

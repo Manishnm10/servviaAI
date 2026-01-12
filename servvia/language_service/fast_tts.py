@@ -137,7 +137,7 @@ def split_text_into_chunks(text: str, max_chunk_size: int = 400) -> List[str]:
         return [text] if text. strip() else []
     
     # Split by sentences (period/exclamation/question followed by space)
-    sentences = re.split(r'(? <=[.!? ])\s+', text)
+    sentences = re.split(r'(? <=[.!?])\s+', text)
     
     chunks = []
     current_chunk = ""
