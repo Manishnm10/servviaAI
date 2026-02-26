@@ -21,7 +21,7 @@ import json
 logger = logging.getLogger(__name__)
 
 try:
-    import google as genai
+    import google.generativeai as genai
     GEMINI_AVAILABLE = True
     logger.info("✅ ServVia AI available")
 except ImportError:

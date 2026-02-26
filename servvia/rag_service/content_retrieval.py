@@ -1,5 +1,5 @@
 """
-Content retrieval from Farmstack vector database
+Content retrieval from vector database
 """
 import logging
 import requests
