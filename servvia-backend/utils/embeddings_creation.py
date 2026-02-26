@@ -39,11 +39,11 @@ from langchain_community.document_loaders import (
 )
 # from langchain.document_loaders import TextLoader
 from langchain_openai import OpenAIEmbeddings
-from langchain.text_splitter import (
+from langchain_classic.text_splitter import (
     CharacterTextSplitter,
     RecursiveCharacterTextSplitter,
 )
-from langchain_community.vectorstores. pgvector import DistanceStrategy
+from langchain_community.vectorstores.pgvector import DistanceStrategy
 from pgvector.django import CosineDistance, L2Distance
 from psycopg.conninfo import make_conninfo
 from reportlab.lib import colors
@@ -63,15 +63,15 @@ from core import settings
 from core.constants import Constants
 from datahub.models import LangchainPgCollection, LangchainPgEmbedding, OutputParser, ResourceFile
 from utils.chain_builder import ChainBuilder
-from langchain.prompts import PromptTemplate
+from langchain_classic.prompts import PromptTemplate
 from utils.pgvector import PGVector
-from langchain.retrievers.merger_retriever import MergerRetriever
+from langchain_classic.retrievers.merger_retriever import MergerRetriever
 
-from langchain.retrievers import (
-ContextualCompressionRetriever,
-MergerRetriever,
+from langchain_classic.retrievers import (
+    ContextualCompressionRetriever,
+    MergerRetriever,
 )
-from langchain.retrievers.document_compressors import DocumentCompressorPipeline
+from langchain_classic.retrievers.document_compressors import DocumentCompressorPipeline
 
 from langchain_community.document_transformers import (
     EmbeddingsClusteringFilter,
@@ -322,10 +322,10 @@ class VectorBuilder:
                         summary = self.generate_transcriptions_summary(url)
                         self.build_pdf(summary, temp_pdf_path)
                         ResourceFile.objects.filter(id=id).update(transcription=summary)
-                        loader = PyMuPDFLoader(temp_pdf_path)  # Assuming PyMuPDFLoader is defined elsewhere
+                        loader = PyMuPDFLoader(temp_pdf_path)
                     elif type == 'pdf':
                         self.download_file(url, temp_pdf_path)
-                        loader = PyMuPDFLoader(temp_pdf_path)  # Assuming PyMuPDFLoader is defined elsewhere
+                        loader = PyMuPDFLoader(temp_pdf_path)
                     elif type == 'file':
                         file_path = self.resolve_file_path(file)
                         loader, format = self.load_by_file_extension(file_path, temp_pdf_path)
@@ -335,7 +335,7 @@ class VectorBuilder:
                         doc_text = self.aggregate_links_content(web_links, doc_text)
                         all_content = main_content + "\n" + doc_text
                         self.build_pdf(all_content.replace("\n", " "), temp_pdf_path)
-                        loader = PyMuPDFLoader(temp_pdf_path)  # Assuming PyMuPDFLoader is defined elsewhere
+                        loader = PyMuPDFLoader(temp_pdf_path)
                     return loader.load(), "completed"
             else:
                 LOGGING.error(f"Unsupported input type: {type}")
@@ -363,7 +363,7 @@ class VectorBuilder:
     def process_website_content(self, url):
         try:
             response = requests.get(url, verify=False)
-            response.raise_for_status()  # Raises a HTTPError for bad responses
+            response.raise_for_status()
             soup = BeautifulSoup(response.text, 'html.parser')
             main_content = soup.get_text(separator="\n", strip=True)
             web_links = set([a['href'] for a in soup.find_all('a', href=True)])
@@ -415,7 +415,7 @@ class VectorBuilder:
 
     def handle_html_file(self, file, temp_pdf):
         text = ""
-        loader = UnstructuredHTMLLoader(file)  # Assuming this loader is preferred for HTML
+        loader = UnstructuredHTMLLoader(file)
         for paragraph in loader.load():
             text += paragraph.page_content + "\n"
         self.build_pdf(text, temp_pdf)
@@ -626,7 +626,7 @@ class VectorDBBuilder:
             "youtube_url": youtube_url,
             "query_response": answer.get("response"),
             "condensed_question": result.get("generated_question"),
-            "follow_up_questions": answer.get("follw_up_questions")  # Note: Check the spelling of "follow_up_questions" in your source.
+            "follow_up_questions": answer.get("follw_up_questions")
         }
 
         return answer.get("response"), result["source_documents"], result["generated_question"], metadata
@@ -668,4 +668,3 @@ class VectorDBBuilder:
         except Exception as e:
             LOGGING.error(f"Error while generating response for query: {text}: Error {e}", exc_info=True)
             return str(e)
-    

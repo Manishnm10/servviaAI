@@ -501,7 +501,7 @@ class Messages(TimeStampMixin):
 #     class Meta:
 #         db_table = 'datahub_messages_retrieved_chunks'
 
-from langchain_core.pydantic_v1 import BaseModel, Field
+from pydantic import BaseModel, Field
 
 
 class OutputParser(BaseModel):

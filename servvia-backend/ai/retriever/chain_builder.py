@@ -1,7 +1,7 @@
 import logging
-from langchain.chains import ConversationalRetrievalChain
+from langchain_classic.chains import ConversationalRetrievalChain  # CHANGED
 from langchain_community.chat_models import ChatOpenAI
-from langchain.retrievers import MergerRetriever
+from langchain_classic.retrievers import MergerRetriever  # CHANGED
 from core import settings
 
 LOGGING = logging.getLogger(__name__)
@@ -37,9 +37,9 @@ class ChainBuilder:
         # qa.return_source
         return qa, vector_db
 
-from langchain.schema.retriever import BaseRetriever
+from langchain_classic.schema.retriever import BaseRetriever  # CHANGED
 from typing import List
-from langchain.callbacks.manager import CallbackManagerForRetrieverRun
+from langchain_classic.callbacks.manager import CallbackManagerForRetrieverRun  # CHANGED
 from langchain_core.documents import Document
 
 class CustomRetriever(BaseRetriever):

@@ -9,7 +9,7 @@ import requests
 from bs4 import BeautifulSoup
 from django.db import transaction
 from langchain_community.document_loaders import JSONLoader, PyMuPDFLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_classic.text_splitter import RecursiveCharacterTextSplitter  # CHANGED
 from sklearn.metrics.pairwise import cosine_similarity
 from unstructured.partition.pdf import partition_pdf
 from unstructured.staging.base import elements_to_dicts
