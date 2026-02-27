@@ -9,9 +9,10 @@ Features:
 - Medication change acknowledgment
 - Detailed remedy formatting
 - Age-appropriate recommendations (AI-driven, not hardcoded)
+- Intelligent symptom diagnosis (LLM + Farmstack VectorDB)
 
 Author: ServVia Team
-Version:  2.1.0
+Version:  2.2.0
 """
 
 import datetime
@@ -20,6 +21,16 @@ from typing import Dict, List, Optional, Any
 from asgiref.sync import sync_to_async
 
 from rag_service.openai_service import make_openai_request
+
+# Symptom Diagnosis Engine imports
+from servvia2.symptom_diagnosis.analyzer import (
+    SymptomDiagnosisEngine,
+    build_diagnosis_response,
+)
+from servvia2.symptom_diagnosis.vectordb_adapter import (
+    retrieve_from_farmstack,
+    retrieve_from_farmstack_with_email,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -38,8 +49,6 @@ def create_personalized_greeting(user_name, user_age, user_sex, condition, query
     """
     # If asking about someone else
     if asking_for_other and query_subject:
-        # query_subject is a STRING description like "18-year-old" or "18-year-old brother"
-        
         greeting = f"👋 Hi {user_name}! "
         
         if relationship:
@@ -106,13 +115,13 @@ def get_user_profile_from_db(email_id: str) -> Optional[Dict]:
     Fetch user profile from database asynchronously.
     """
     try:
-        from user_profile. models import UserProfile
+        from user_profile.models import UserProfile
         profile = UserProfile.objects.get(email=email_id)
         return {
             'allergies': profile.get_allergies_list(),
             'medical_conditions': profile.get_conditions_list(),
             'current_medications': profile.get_medications_list(),
-            'first_name': profile. first_name,
+            'first_name': profile.first_name,
             'age': profile.age,
             'sex': profile.sex,
             'age_group': profile.get_age_group(),
@@ -122,26 +131,16 @@ def get_user_profile_from_db(email_id: str) -> Optional[Dict]:
         return None
 
 
-def get_age_safety_context(age: int, age_group:  str, asking_for_other: bool = False, relationship: str = None, query_subject: str = None) -> Dict[str, Any]:
+def get_age_safety_context(age: int, age_group: str, asking_for_other: bool = False, relationship: str = None, query_subject: str = None) -> Dict[str, Any]:
     """
     Generate comprehensive age-based safety context.
-    
-    Instead of hardcoding specific ingredients, we provide the AI with
-    medical guidelines and let it + Trust Engine make informed decisions. 
-    
-    This approach is better because:
-    1. Medical knowledge evolves - AI can stay current
-    2. Context matters - some ingredients safe in small amounts
-    3. Trust Engine validates against evidence database
-    4. More comprehensive than any hardcoded list
     """
     
-    # Add context prefix if asking for someone else
     context_prefix = ""
     if asking_for_other: 
         subject_desc = query_subject or f"their {relationship}" if relationship else "someone else"
         context_prefix = f"""
-🎯🎯🎯 IMPORTANT:  USER IS ASKING FOR {subject_desc. upper()} 🎯🎯🎯
+🎯🎯🎯 IMPORTANT:  USER IS ASKING FOR {subject_desc.upper()} 🎯🎯🎯
 The user is NOT asking about themselves. They are asking for:  {subject_desc}
 ALL recommendations must be appropriate for {subject_desc}.
 Start your response with: "For your {relationship or 'family member'} ({subject_desc})..."
@@ -157,14 +156,13 @@ Start your response with: "For your {relationship or 'family member'} ({subject_
             'special_instructions': ''
         }
     
-    # Infant (0-2 years)
     if age < 2:
         return {
-            'age_category':  'infant',
+            'age_category': 'infant',
             'safety_level': 'maximum_caution',
-            'dosage_modifier': 0.1,  # 10% of adult dose max
+            'dosage_modifier': 0.1,
             'guidelines': f"""
-🚨 INFANT SAFETY PROTOCOL (Age:  {age} {'year' if age == 1 else 'months' if age < 1 else 'years'}) 🚨
+🚨 INFANT SAFETY PROTOCOL (Age: {age} {'year' if age == 1 else 'months' if age < 1 else 'years'}) 🚨
 
 MEDICAL REALITY:  Infants have immature organ systems that cannot process many substances safely.
 
@@ -195,15 +193,14 @@ RESPONSE FORMAT REQUIRED:
 3. STRONGLY advise pediatrician consultation
 4. Explain WHY most remedies are not safe for infants
 """,
-            'special_instructions':  'ALWAYS recommend seeing a pediatrician.  Most home remedies are NOT safe for infants.'
+            'special_instructions': 'ALWAYS recommend seeing a pediatrician.  Most home remedies are NOT safe for infants.'
         }
     
-    # Toddler (2-4 years)
     elif age < 5:
         return {
             'age_category': 'toddler',
             'safety_level': 'high_caution',
-            'dosage_modifier': 0.25,  # 25% of adult dose
+            'dosage_modifier': 0.25,
             'guidelines': f"""
 ⚠️ TODDLER SAFETY PROTOCOL (Age: {age} years) ⚠️
 
@@ -239,15 +236,14 @@ RESPONSE FORMAT:
 3. Suggest pediatrician consultation
 4. Provide parent administration tips
 """,
-            'special_instructions':  'Recommend parental supervision.  Use child-friendly preparations.'
+            'special_instructions': 'Recommend parental supervision.  Use child-friendly preparations.'
         }
     
-    # Child (5-12 years)
     elif age < 12:
         return {
             'age_category': 'child',
             'safety_level': 'moderate_caution',
-            'dosage_modifier': 0.5,  # 50% of adult dose
+            'dosage_modifier': 0.5,
             'guidelines': f"""
 ⚠️ CHILD SAFETY PROTOCOL (Age: {age} years) ⚠️
 
@@ -287,13 +283,12 @@ RESPONSE FORMAT:
             'special_instructions': 'Always specify child-appropriate dosages. Recommend parental supervision.'
         }
     
-    # Teenager (12-17 years)
     elif age < 18:
         return {
             'age_category': 'teenager',
             'safety_level': 'standard_with_notes',
-            'dosage_modifier': 0.75,  # 75% of adult dose
-            'guidelines':  f"""
+            'dosage_modifier': 0.75,
+            'guidelines': f"""
 TEENAGER PROTOCOL (Age: {age} years)
 
 CONSIDERATIONS:
@@ -316,13 +311,12 @@ RESPONSE FORMAT:
 2. Mention any school/sports considerations
 3. Note if anything might affect hormones
 """,
-            'special_instructions':  'Near-adult dosing. Note any hormonal or sports-related considerations.'
+            'special_instructions': 'Near-adult dosing. Note any hormonal or sports-related considerations.'
         }
     
-    # Adult (18-59 years)
     elif age < 60:
         return {
-            'age_category':  'adult',
+            'age_category': 'adult',
             'safety_level': 'standard',
             'dosage_modifier': 1.0,
             'guidelines': f"""
@@ -341,15 +335,14 @@ RESPONSE FORMAT:
 2. Emphasize medication interactions if any
 3. Clear dosing instructions
 """,
-            'special_instructions':  'Standard adult guidelines. Focus on medication interactions and conditions.'
+            'special_instructions': 'Standard adult guidelines. Focus on medication interactions and conditions.'
         }
     
-    # Senior (60-74 years)
     elif age < 75:
         return {
             'age_category': 'senior',
             'safety_level': 'increased_caution',
-            'dosage_modifier': 0.75,  # Start with 75%
+            'dosage_modifier': 0.75,
             'guidelines': f"""
 ⚠️ SENIOR SAFETY PROTOCOL (Age: {age} years) ⚠️
 
@@ -397,13 +390,12 @@ RESPONSE FORMAT:
             'special_instructions': 'Reduced dosing.  Careful medication interaction checking. Prefer gentler remedies.'
         }
     
-    # Elderly (75+ years)
     else:
         return {
             'age_category': 'elderly',
             'safety_level': 'maximum_caution',
-            'dosage_modifier': 0.5,  # 50% of adult dose
-            'guidelines':  f"""
+            'dosage_modifier': 0.5,
+            'guidelines': f"""
 🚨 ELDERLY SAFETY PROTOCOL (Age: {age} years) 🚨
 
 CRITICAL PHYSIOLOGICAL CHANGES:
@@ -446,12 +438,9 @@ RESPONSE FORMAT:
         }
 
 
-def get_sex_safety_context(sex: str, age:  int) -> str:
+def get_sex_safety_context(sex: str, age: int) -> str:
     """
     Generate sex-specific safety context.
-    
-    Again, providing guidelines rather than hardcoded lists,
-    allowing AI to make contextual decisions.
     """
     
     if not sex:
@@ -499,7 +488,6 @@ HELPFUL FOR FEMALE-SPECIFIC ISSUES:
 - Evening primrose (hormonal balance)
 """
         
-        # Add age-specific female notes
         if age and 12 <= age <= 50:
             context += """
 ⚠️ REPRODUCTIVE AGE - Always consider pregnancy possibility before recommending herbs. 
@@ -552,12 +540,8 @@ def build_system_prompt(
 ) -> str:
     """
     Build a comprehensive system prompt for OpenAI. 
-    
-    This uses AI-driven safety evaluation rather than hardcoded lists,
-    allowing for more nuanced, context-aware recommendations.
     """
     
-    # Extract profile data
     allergies = user_profile.get('allergies', []) if user_profile else []
     profile_conditions = user_profile.get('medical_conditions', []) if user_profile else []
     profile_medications = user_profile.get('current_medications', []) if user_profile else []
@@ -565,20 +549,16 @@ def build_system_prompt(
     user_sex = user_profile.get('sex') if user_profile else None
     user_age_group = user_profile.get('age_group') if user_profile else None
     
-        
-    # Check if asking for someone else
     asking_for_other = user_profile.get('asking_for_other', False) if user_profile else False
     query_subject = user_profile.get('query_subject') if user_profile else None
     relationship = user_profile.get('relationship') if user_profile else None
 
-    # Extract conversation context
     all_conditions = conversation_context.get('conditions', [])
     all_herbs = conversation_context.get('herbs', [])
     all_medications = conversation_context.get('medications', [])
     current_condition = conversation_context.get('current_condition', 'general health')
     history = conversation_context.get('history', '')
     
-    # Get dynamic age-based safety context
     age_safety = get_age_safety_context(
         user_age, 
         user_age_group, 
@@ -588,11 +568,10 @@ def build_system_prompt(
     )
     sex_safety = get_sex_safety_context(user_sex, user_age)
     
-    # Build medication update acknowledgment
     medication_update = ""
     if context_changes.get('removed'):
         removed_meds = [
-            r. replace('medication:  ', '')
+            r.replace('medication:  ', '')
             for r in context_changes['removed']
             if 'medication: ' in r
         ]
@@ -618,7 +597,6 @@ You MUST:
 Check if any recommendations conflict with these medications.
 """
     
-    # Build prominent allergy warning
     allergy_warning = ""
     if allergies:
         allergy_list = ', '.join([a.upper() for a in allergies])
@@ -636,7 +614,6 @@ THIS IS NON-NEGOTIABLE.  Allergic reactions can be fatal.
 ================================================================================
 """
 
-    # Build age alert header
     age_alert = ""
     if user_age: 
         if user_age < 2:
@@ -671,8 +648,6 @@ Increased caution - 75% dosing, medication interactions critical
 ================================================================================
 """
 
-    
-    # Build "asking for other" alert
     asking_for_other_alert = ""
     if asking_for_other:
         asking_for_other_alert = f"""
@@ -687,7 +662,6 @@ The user ({user_name}) is asking for advice for:  {query_subject}
 ================================================================================
 """
 
-    # Build the comprehensive system prompt
     prompt = f"""{asking_for_other_alert}{age_alert}{allergy_warning}You are ServVia, an AI health assistant specializing in evidence-based natural home remedies. 
 
 Your responses are validated by a Neuro-Symbolic Trust Engine that checks:
@@ -703,13 +677,13 @@ YOU MUST USE YOUR MEDICAL KNOWLEDGE to evaluate safety - do not rely on hardcode
 
 === USER PROFILE ===
 👤 Name: {user_name}
-🎂 Age: {f"{user_age} years old" if user_age else 'Not specified'} {f"({age_safety['age_category']. upper()})" if age_safety.get('age_category') else ''}
-⚧ Sex: {user_sex. capitalize() if user_sex else 'Not specified'}
-🚫 Allergies: {', '. join(allergies) if allergies else 'None reported'}
+🎂 Age: {f"{user_age} years old" if user_age else 'Not specified'} {f"({age_safety['age_category'].upper()})" if age_safety.get('age_category') else ''}
+⚧ Sex: {user_sex.capitalize() if user_sex else 'Not specified'}
+🚫 Allergies: {', '.join(allergies) if allergies else 'None reported'}
 🏥 Health Conditions: {', '.join(profile_conditions) if profile_conditions else 'None reported'}
 💊 Medications: {', '.join(profile_medications) if profile_medications else 'None reported'}
 
-📊 DOSAGE MODIFIER FOR THIS USER:  {age_safety. get('dosage_modifier', 1.0) if age_safety else 1.0}x adult dose
+📊 DOSAGE MODIFIER FOR THIS USER:  {age_safety.get('dosage_modifier', 1.0) if age_safety else 1.0}x adult dose
 (Calculate all dosages accordingly)
 
 === CURRENT CONVERSATION ===
@@ -721,7 +695,7 @@ Medications mentioned:  {', '.join(all_medications) if all_medications else 'Non
 {safety_instructions}
 
 === CONVERSATION HISTORY ===
-{history if history else 'This is the start of a new conversation. '}
+{history if history else 'This is the start of a new conversation.'}
 
 === REMEDY PREFERENCES ===
 PREFER simple, kitchen-based home remedies over complex supplements:
@@ -746,10 +720,9 @@ WRONG:  "🌿 Remedy 5: Honey-Lemon Water (Avoid due to allergy)"
 RIGHT: Skip it entirely, provide "Warm Lemon Water" or a completely different remedy
 
 === RESPONSE FORMAT ===
-=== RESPONSE FORMAT ===
 
-{"START YOUR RESPONSE WITH: 'For a " + str(user_age) + "-year-old " + (age_safety. get('age_category', '') if age_safety else '') + "...' " if user_age and user_age < 18 else ""}
-{"START YOUR RESPONSE WITH: 'At " + str(user_age) + ", we need to be especially careful.. .' " if user_age and user_age >= 65 else ""}
+{"START YOUR RESPONSE WITH: 'For a " + str(user_age) + "-year-old " + (age_safety.get('age_category', '') if age_safety else '') + "...' " if user_age and user_age < 18 else ""}
+{"START YOUR RESPONSE WITH: 'At " + str(user_age) + ", we need to be especially careful...' " if user_age and user_age >= 65 else ""}
 
 ⚠️ IMPORTANT: YOU MUST PROVIDE EXACTLY 4-5 DIFFERENT REMEDIES FOR HEALTH CONDITIONS. 
 DO NOT PROVIDE ONLY 1 REMEDY.  USERS EXPECT MULTIPLE OPTIONS. 
@@ -837,7 +810,7 @@ async def generate_query_response(
     response_map = {
         "response": None,
         "original_query": original_query,
-        "rephrased_query":  rephrased_query,
+        "rephrased_query": rephrased_query,
         "generation_start_time": None,
         "generation_end_time": None,
         "completion_tokens": 0,
@@ -858,11 +831,93 @@ async def generate_query_response(
     
     # Log the profile being used
     if user_profile:
-        logger. info(f"Generating response with profile: age={user_profile.get('age')}, sex={user_profile.get('sex')}, allergies={user_profile.get('allergies')}")
-    
+        logger.info(f"Generating response with profile: age={user_profile.get('age')}, sex={user_profile.get('sex')}, allergies={user_profile.get('allergies')}")
+
+    # ==========================================================
+    # INTELLIGENT SYMPTOM DIAGNOSIS
+    # Runs BEFORE remedy generation. If a serious disease is
+    # detected (dengue, malaria, etc.), returns a medical alert
+    # instead of home remedies. For simple queries (just a
+    # headache), it enriches the context and lets the normal
+    # remedy flow continue.
+    # ==========================================================
+    try:
+        # Pick the right Farmstack retriever
+        if email_id:
+            async def _retriever(query, top_k=5):
+                return await retrieve_from_farmstack_with_email(
+                    query, email_id, top_k
+                )
+        else:
+            _retriever = retrieve_from_farmstack
+
+        diagnosis_engine = SymptomDiagnosisEngine(
+            vectordb_retriever=_retriever
+        )
+        diagnosis = await diagnosis_engine.diagnose(
+            query=original_query,
+            user_profile=user_profile,
+        )
+
+        # CASE 1: Serious condition detected
+        # Build the diagnosis alert but DON'T return early — let the
+        # full pipeline run (remedies + Trust Engine + timing) and
+        # prepend the alert to the final response
+        diagnosis_alert = ""
+        if (
+            diagnosis.needs_medical_attention 
+            and not diagnosis.home_remedy_appropriate
+            and diagnosis.symptom_profile
+            and diagnosis.symptom_profile.symptom_count >= 3
+            and diagnosis.confidence >= 0.7
+            and diagnosis.triage_level in ("urgent-care", "emergency")
+        ):
+            logger.warning(
+                f"⚠️ SERIOUS CONDITION DETECTED: {diagnosis.primary_condition} "
+                f"(confidence={diagnosis.confidence:.0%}, "
+                f"symptoms={diagnosis.symptom_profile.symptom_count})"
+            )
+            diagnosis_alert = build_diagnosis_response(diagnosis, user_name=name)
+
+            response_map["diagnosis"] = {
+                "condition": diagnosis.primary_condition,
+                "confidence": diagnosis.confidence,
+                "severity": diagnosis.severity,
+                "is_emergency": diagnosis.is_emergency,
+                "triage_level": diagnosis.triage_level,
+                "possible_conditions": diagnosis.possible_conditions,
+            }
+
+        # CASE 2: Diagnosis found a condition but home remedies are OK
+        # → inject the diagnosis as extra context so the remedy LLM
+        #   knows exactly WHAT it's treating
+        if (
+            diagnosis.primary_condition 
+            and diagnosis.primary_condition not in ("general health", "Unknown")
+        ):
+            diagnosis_context = (
+                f"\n\n=== DIAGNOSIS CONTEXT ===\n"
+                f"Symptom analysis identified: {diagnosis.primary_condition}\n"
+                f"Severity: {diagnosis.severity}\n"
+                f"Reasoning: {diagnosis.reasoning}\n"
+                f"Provide remedies specifically for {diagnosis.primary_condition}.\n"
+            )
+            context_chunks = (context_chunks or "") + diagnosis_context
+
+            if conversation_context is None:
+                conversation_context = {}
+            conversation_context['current_condition'] = diagnosis.primary_condition
+
+    except Exception as e:
+        # Non-blocking: if diagnosis fails, normal remedy flow continues
+        logger.error(f"Symptom diagnosis failed (non-blocking): {e}", exc_info=True)
+    # ==========================================================
+    # END DIAGNOSIS BLOCK
+    # ==========================================================
+
     # Ensure we have defaults
     conversation_context = conversation_context or {}
-    context_changes = context_changes or {'added':  [], 'removed': []}
+    context_changes = context_changes or {'added': [], 'removed': []}
     
     # Build system prompt
     system_prompt = build_system_prompt(
@@ -888,7 +943,7 @@ async def generate_query_response(
     )
     
     # Build knowledge base section
-    kb_context = context_chunks[: 4000] if context_chunks else 'No specific knowledge base content.  Use your medical knowledge to provide evidence-based natural remedies.'
+    kb_context = context_chunks[:4000] if context_chunks else 'No specific knowledge base content.  Use your medical knowledge to provide evidence-based natural remedies.'
     
     # Build asking for other section
     asking_for_section = ""
@@ -914,7 +969,7 @@ async def generate_query_response(
     full_prompt += asking_for_section
     full_prompt += "Provide a helpful, detailed, AGE-APPROPRIATE response.\n"
     full_prompt += age_reminder + "\n"
-    full_prompt += f"Apply dosage modifier: {age_context. get('dosage_modifier', 1.0)}x\n\n"
+    full_prompt += f"Apply dosage modifier: {age_context.get('dosage_modifier', 1.0)}x\n\n"
     full_prompt += "Your response (MUST include 4-5 different remedies):"
 
     # Generate response
@@ -927,10 +982,9 @@ async def generate_query_response(
         response_map["response_gen_retries"] = retries
         
         if generated_response:
-            llm_response = generated_response. choices[0].message.content
+            llm_response = generated_response.choices[0].message.content
     
             # PREPEND PERSONALIZED GREETING
-            # Extract condition string safely
             condition_str = conversation_context.get('current_condition', '') if conversation_context else ''
             if not condition_str:
                 condition_str = original_query
@@ -945,10 +999,12 @@ async def generate_query_response(
                 relationship=user_profile.get('relationship') if user_profile else None
             )
 
-    
-            response_map["response"] = personalized_greeting + llm_response
+            # If diagnosis alert exists, prepend it before the remedies
+            if diagnosis_alert:
+                response_map["response"] = diagnosis_alert + "\n" + llm_response
+            else:
+                response_map["response"] = personalized_greeting + llm_response
 
-            
             # Extract usage stats
             usage = getattr(generated_response, "usage", None)
             if usage:

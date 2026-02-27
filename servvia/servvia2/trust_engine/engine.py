@@ -1760,21 +1760,56 @@ class TrustEngine:
         logger.info(f"Trust Engine: Found herbs {found_herbs}")
         logger.info(f"Trust Engine: Checking against medications {user_medications}")
         
-        # Verify each herb
+        # Build list of ALL conditions to check against
+        all_conditions_to_check = []
+        if condition:
+            all_conditions_to_check.append(condition)
+        
+        # Also extract other conditions from the original query
+        query_conditions = self._identify_all_conditions(query)
+        for qc in query_conditions:
+            if qc.lower() not in [c.lower() for c in all_conditions_to_check]:
+                all_conditions_to_check.append(qc)
+        
+        if not all_conditions_to_check:
+            all_conditions_to_check = [condition or 'general health']
+        
+        logger.info(f"Trust Engine: Checking herbs against conditions {all_conditions_to_check}")
+        
+        # Verify each herb against ALL conditions — keep the best match
         results = []
         for herb in set(found_herbs):  # Use set to avoid duplicates
-            result = self._verify_single_claim(
-                herb_name=herb,
-                condition=condition,
-                user_conditions=user_conditions,
-                user_medications=user_medications
-            )
-            results.append(result)
+            best_result = None
+            
+            for cond in all_conditions_to_check:
+                result = self._verify_single_claim(
+                    herb_name=herb,
+                    condition=cond,
+                    user_conditions=user_conditions,
+                    user_medications=user_medications
+                )
+                
+                # Keep this result if it's verified (has evidence)
+                if result.is_valid and not result.is_hallucination:
+                    if best_result is None or result.confidence_score > best_result.confidence_score:
+                        best_result = result
+            
+            # If no condition matched, use the primary condition result
+            if best_result is None:
+                best_result = self._verify_single_claim(
+                    herb_name=herb,
+                    condition=condition,
+                    user_conditions=user_conditions,
+                    user_medications=user_medications
+                )
+            
+            results.append(best_result)
         
         # Generate global warnings
         global_warnings = self._generate_global_warnings(results)
         
         return results, global_warnings
+
     
     def _verify_single_claim(
         self,
@@ -1939,6 +1974,62 @@ class TrustEngine:
                     return condition
     
         return 'general health'
+
+    def _identify_all_conditions(self, query: str) -> List[str]:
+        """
+        Extract ALL conditions from query, not just the first one.
+        
+        For "high fever, headache, joint pain, rash, nausea, vomiting"
+        this returns ['fever', 'headache', 'nausea', 'joint pain', 'muscle pain']
+        instead of just 'headache'.
+        """
+        query_lower = query.lower()
+        found = []
+        
+        condition_map = {
+            'headache': ['headache', 'head pain', 'migraine', 'head hurts'],
+            'fever': ['fever', 'temperature', 'feverish'],
+            'cold': ['cold', 'runny nose', 'congestion', 'stuffy'],
+            'cough': ['cough', 'coughing'],
+            'nausea': ['nausea', 'nauseous', 'vomit', 'queasy', 'vomiting'],
+            'sore throat': ['sore throat', 'throat pain', 'throat hurts'],
+            'indigestion': ['indigestion', 'bloating', 'gas', 'acidity', 'heartburn'],
+            'anxiety': ['anxiety', 'anxious', 'nervous', 'panic'],
+            'stress': ['stress', 'stressed', 'tension'],
+            'insomnia': ['insomnia', 'sleep', 'sleepless'],
+            'fatigue': ['fatigue', 'tired', 'exhausted', 'energy'],
+            'joint pain': ['joint pain', 'arthritis', 'joints', 'joint/muscle'],
+            'muscle pain': ['muscle pain', 'muscle ache', 'sore muscles'],
+            'back pain': ['back pain', 'backache'],
+            'constipation': ['constipation', 'constipated'],
+            'diarrhea': ['diarrhea', 'loose stool'],
+            'skin issues': ['rash', 'eczema', 'skin', 'acne', 'pimples'],
+            'burns': ['burn', 'burnt', 'scalded'],
+            'inflammation': ['inflammation', 'swelling', 'inflamed'],
+            'toothache': ['toothache', 'tooth pain'],
+            'menstrual cramps': ['menstrual', 'period pain', 'period cramps'],
+            'motion sickness': ['motion sickness', 'car sick', 'travel sickness'],
+            'sinus': ['sinus', 'sinusitis'],
+            'ear pain': ['ear pain', 'earache'],
+            'eye strain': ['eye strain', 'tired eyes'],
+            'diabetes': ['diabetes', 'blood sugar'],
+            'high blood pressure': ['blood pressure', 'hypertension'],
+            'immunity': ['immunity', 'immune'],
+            'hair loss': ['hair loss', 'hair fall'],
+            'dandruff': ['dandruff', 'flaky scalp'],
+            'wound': ['wound', 'cut', 'bleeding', 'injury'],
+            'bruise': ['bruise', 'bruised'],
+        }
+        
+        for condition, keywords in condition_map.items():
+            for keyword in keywords:
+                if keyword in query_lower:
+                    if condition not in found:
+                        found.append(condition)
+                    break
+        
+        return found
+
 
     
     def _generate_global_warnings(self, results: List[VerificationResult]) -> List[str]:
