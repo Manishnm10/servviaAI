@@ -34,7 +34,7 @@ build/
 # Cache
 .cache/
 
-farmer-chat/New Text Document.txt
+servvia/New Text Document.txt
 
 # Claude config
 .claude/

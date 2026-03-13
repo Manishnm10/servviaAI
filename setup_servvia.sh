@@ -2,11 +2,11 @@
 echo "🚀 Setting up Servvia..."
 
 # Create backend structure
-mkdir -p farmstack-backend/servvia/{models,serializers,views,management/commands}
-mkdir -p farmstack-backend/kafka_{consumer,producer}
+mkdir -p servvia-backend/servvia/{models,serializers,views,management/commands}
+mkdir -p servvia-backend/kafka_{consumer,producer}
 
 # Create models
-cat > farmstack-backend/servvia/models.py << 'MODELS_EOF'
+cat > servvia-backend/servvia/models.py << 'MODELS_EOF'
 from django.db import models
 from django.contrib.auth.models import User
 import uuid
