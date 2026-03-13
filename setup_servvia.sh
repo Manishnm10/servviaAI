@@ -1,13 +1,12 @@
-#Start script for macOS
 #!/bin/bash
-echo "🚀 Setting up ServVia..."
+echo "🚀 Setting up Servvia..."
 
 # Create backend structure
-mkdir -p servvia-backend/servvia/{models,serializers,views,management/commands}
-mkdir -p servvia-backend/kafka_{consumer,producer}
+mkdir -p farmstack-backend/servvia/{models,serializers,views,management/commands}
+mkdir -p farmstack-backend/kafka_{consumer,producer}
 
 # Create models
-cat > servvia-backend/servvia/models.py << 'MODELS_EOF'
+cat > farmstack-backend/servvia/models.py << 'MODELS_EOF'
 from django.db import models
 from django.contrib.auth.models import User
 import uuid

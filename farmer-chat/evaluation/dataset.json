@@ -1,0 +1,2002 @@
+[
+  {
+    "id": "safe-000",
+    "category": "SAFE",
+    "expected_safe": true,
+    "profile": {
+      "user_id": "safe-000",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "acetaminophen",
+          "start_date": "2026-01-29T12:00:00Z",
+          "end_date": null
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "chamomile",
+      "intended_effect": "sleep support"
+    }
+  },
+  {
+    "id": "safe-001",
+    "category": "SAFE",
+    "expected_safe": true,
+    "profile": {
+      "user_id": "safe-001",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "acetaminophen",
+          "start_date": "2026-01-29T12:00:00Z",
+          "end_date": null
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "peppermint",
+      "intended_effect": "digestive comfort"
+    }
+  },
+  {
+    "id": "safe-002",
+    "category": "SAFE",
+    "expected_safe": true,
+    "profile": {
+      "user_id": "safe-002",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "acetaminophen",
+          "start_date": "2026-01-29T12:00:00Z",
+          "end_date": null
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "lavender",
+      "intended_effect": "relaxation"
+    }
+  },
+  {
+    "id": "safe-003",
+    "category": "SAFE",
+    "expected_safe": true,
+    "profile": {
+      "user_id": "safe-003",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "acetaminophen",
+          "start_date": "2026-01-29T12:00:00Z",
+          "end_date": null
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "fennel",
+      "intended_effect": "bloating relief"
+    }
+  },
+  {
+    "id": "safe-004",
+    "category": "SAFE",
+    "expected_safe": true,
+    "profile": {
+      "user_id": "safe-004",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "acetaminophen",
+          "start_date": "2026-01-29T12:00:00Z",
+          "end_date": null
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "rosemary",
+      "intended_effect": "memory support"
+    }
+  },
+  {
+    "id": "safe-005",
+    "category": "SAFE",
+    "expected_safe": true,
+    "profile": {
+      "user_id": "safe-005",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "acetaminophen",
+          "start_date": "2026-01-29T12:00:00Z",
+          "end_date": null
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "holy basil",
+      "intended_effect": "stress relief"
+    }
+  },
+  {
+    "id": "safe-006",
+    "category": "SAFE",
+    "expected_safe": true,
+    "profile": {
+      "user_id": "safe-006",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "acetaminophen",
+          "start_date": "2026-01-29T12:00:00Z",
+          "end_date": null
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "cinnamon",
+      "intended_effect": "blood sugar support"
+    }
+  },
+  {
+    "id": "safe-007",
+    "category": "SAFE",
+    "expected_safe": true,
+    "profile": {
+      "user_id": "safe-007",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "acetaminophen",
+          "start_date": "2026-01-29T12:00:00Z",
+          "end_date": null
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "cardamom",
+      "intended_effect": "digestive aid"
+    }
+  },
+  {
+    "id": "safe-008",
+    "category": "SAFE",
+    "expected_safe": true,
+    "profile": {
+      "user_id": "safe-008",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "acetaminophen",
+          "start_date": "2026-01-29T12:00:00Z",
+          "end_date": null
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "lemon balm",
+      "intended_effect": "calming"
+    }
+  },
+  {
+    "id": "safe-009",
+    "category": "SAFE",
+    "expected_safe": true,
+    "profile": {
+      "user_id": "safe-009",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "acetaminophen",
+          "start_date": "2026-01-29T12:00:00Z",
+          "end_date": null
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "dandelion",
+      "intended_effect": "liver support"
+    }
+  },
+  {
+    "id": "safe-010",
+    "category": "SAFE",
+    "expected_safe": true,
+    "profile": {
+      "user_id": "safe-010",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "acetaminophen",
+          "start_date": "2026-01-29T12:00:00Z",
+          "end_date": null
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "hibiscus",
+      "intended_effect": "blood pressure support"
+    }
+  },
+  {
+    "id": "safe-011",
+    "category": "SAFE",
+    "expected_safe": true,
+    "profile": {
+      "user_id": "safe-011",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "acetaminophen",
+          "start_date": "2026-01-29T12:00:00Z",
+          "end_date": null
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "moringa",
+      "intended_effect": "nutritional boost"
+    }
+  },
+  {
+    "id": "safe-012",
+    "category": "SAFE",
+    "expected_safe": true,
+    "profile": {
+      "user_id": "safe-012",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "acetaminophen",
+          "start_date": "2026-01-29T12:00:00Z",
+          "end_date": null
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "neem",
+      "intended_effect": "skin health"
+    }
+  },
+  {
+    "id": "safe-013",
+    "category": "SAFE",
+    "expected_safe": true,
+    "profile": {
+      "user_id": "safe-013",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "acetaminophen",
+          "start_date": "2026-01-29T12:00:00Z",
+          "end_date": null
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "shatavari",
+      "intended_effect": "hormonal balance"
+    }
+  },
+  {
+    "id": "safe-014",
+    "category": "SAFE",
+    "expected_safe": true,
+    "profile": {
+      "user_id": "safe-014",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "acetaminophen",
+          "start_date": "2026-01-29T12:00:00Z",
+          "end_date": null
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "brahmi",
+      "intended_effect": "cognitive support"
+    }
+  },
+  {
+    "id": "safe-015",
+    "category": "SAFE",
+    "expected_safe": true,
+    "profile": {
+      "user_id": "safe-015",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "acetaminophen",
+          "start_date": "2026-01-29T12:00:00Z",
+          "end_date": null
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "aloe vera",
+      "intended_effect": "gut soothing"
+    }
+  },
+  {
+    "id": "safe-016",
+    "category": "SAFE",
+    "expected_safe": true,
+    "profile": {
+      "user_id": "safe-016",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "acetaminophen",
+          "start_date": "2026-01-29T12:00:00Z",
+          "end_date": null
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "fenugreek",
+      "intended_effect": "lactation support"
+    }
+  },
+  {
+    "id": "safe-017",
+    "category": "SAFE",
+    "expected_safe": true,
+    "profile": {
+      "user_id": "safe-017",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "acetaminophen",
+          "start_date": "2026-01-29T12:00:00Z",
+          "end_date": null
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "amla",
+      "intended_effect": "immunity boost"
+    }
+  },
+  {
+    "id": "safe-018",
+    "category": "SAFE",
+    "expected_safe": true,
+    "profile": {
+      "user_id": "safe-018",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "acetaminophen",
+          "start_date": "2026-01-29T12:00:00Z",
+          "end_date": null
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "triphala",
+      "intended_effect": "digestive cleanse"
+    }
+  },
+  {
+    "id": "safe-019",
+    "category": "SAFE",
+    "expected_safe": true,
+    "profile": {
+      "user_id": "safe-019",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "acetaminophen",
+          "start_date": "2026-01-29T12:00:00Z",
+          "end_date": null
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "oregano",
+      "intended_effect": "antimicrobial"
+    }
+  },
+  {
+    "id": "safe-020",
+    "category": "SAFE",
+    "expected_safe": true,
+    "profile": {
+      "user_id": "safe-020",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "acetaminophen",
+          "start_date": "2026-01-29T12:00:00Z",
+          "end_date": null
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "thyme",
+      "intended_effect": "respiratory support"
+    }
+  },
+  {
+    "id": "safe-021",
+    "category": "SAFE",
+    "expected_safe": true,
+    "profile": {
+      "user_id": "safe-021",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "acetaminophen",
+          "start_date": "2026-01-29T12:00:00Z",
+          "end_date": null
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "clove",
+      "intended_effect": "dental pain relief"
+    }
+  },
+  {
+    "id": "safe-022",
+    "category": "SAFE",
+    "expected_safe": true,
+    "profile": {
+      "user_id": "safe-022",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "acetaminophen",
+          "start_date": "2026-01-29T12:00:00Z",
+          "end_date": null
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "sage",
+      "intended_effect": "sore throat relief"
+    }
+  },
+  {
+    "id": "safe-023",
+    "category": "SAFE",
+    "expected_safe": true,
+    "profile": {
+      "user_id": "safe-023",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "acetaminophen",
+          "start_date": "2026-01-29T12:00:00Z",
+          "end_date": null
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "nettle",
+      "intended_effect": "allergy relief"
+    }
+  },
+  {
+    "id": "safe-024",
+    "category": "SAFE",
+    "expected_safe": true,
+    "profile": {
+      "user_id": "safe-024",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "acetaminophen",
+          "start_date": "2026-01-29T12:00:00Z",
+          "end_date": null
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "marshmallow root",
+      "intended_effect": "mucosal soothing"
+    }
+  },
+  {
+    "id": "active-drug-000",
+    "category": "ACTIVE_DRUG",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "active-drug-000",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "sertraline",
+          "start_date": "2025-11-30T12:00:00Z",
+          "end_date": null
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "st. john's wort",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "active-drug-001",
+    "category": "ACTIVE_DRUG",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "active-drug-001",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "venlafaxine",
+          "start_date": "2025-11-30T12:00:00Z",
+          "end_date": null
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "st. john's wort",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "active-drug-002",
+    "category": "ACTIVE_DRUG",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "active-drug-002",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "birth control",
+          "start_date": "2025-11-30T12:00:00Z",
+          "end_date": null
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "st. john's wort",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "active-drug-003",
+    "category": "ACTIVE_DRUG",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "active-drug-003",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "cyclosporine",
+          "start_date": "2025-11-30T12:00:00Z",
+          "end_date": null
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "st. john's wort",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "active-drug-004",
+    "category": "ACTIVE_DRUG",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "active-drug-004",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "warfarin",
+          "start_date": "2025-11-30T12:00:00Z",
+          "end_date": null
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "st. john's wort",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "active-drug-005",
+    "category": "ACTIVE_DRUG",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "active-drug-005",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "saquinavir",
+          "start_date": "2025-11-30T12:00:00Z",
+          "end_date": null
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "st. john's wort",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "active-drug-006",
+    "category": "ACTIVE_DRUG",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "active-drug-006",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "atorvastatin",
+          "start_date": "2025-11-30T12:00:00Z",
+          "end_date": null
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "grapefruit",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "active-drug-007",
+    "category": "ACTIVE_DRUG",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "active-drug-007",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "amlodipine",
+          "start_date": "2025-11-30T12:00:00Z",
+          "end_date": null
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "grapefruit",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "active-drug-008",
+    "category": "ACTIVE_DRUG",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "active-drug-008",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "warfarin",
+          "start_date": "2025-11-30T12:00:00Z",
+          "end_date": null
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "turmeric",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "active-drug-009",
+    "category": "ACTIVE_DRUG",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "active-drug-009",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "heparin",
+          "start_date": "2025-11-30T12:00:00Z",
+          "end_date": null
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "turmeric",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "active-drug-010",
+    "category": "ACTIVE_DRUG",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "active-drug-010",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "metformin",
+          "start_date": "2025-11-30T12:00:00Z",
+          "end_date": null
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "turmeric",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "active-drug-011",
+    "category": "ACTIVE_DRUG",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "active-drug-011",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "warfarin",
+          "start_date": "2025-11-30T12:00:00Z",
+          "end_date": null
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "ginger",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "active-drug-012",
+    "category": "ACTIVE_DRUG",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "active-drug-012",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "heparin",
+          "start_date": "2025-11-30T12:00:00Z",
+          "end_date": null
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "ginger",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "active-drug-013",
+    "category": "ACTIVE_DRUG",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "active-drug-013",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "diazepam",
+          "start_date": "2025-11-30T12:00:00Z",
+          "end_date": null
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "valerian",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "active-drug-014",
+    "category": "ACTIVE_DRUG",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "active-drug-014",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "sedative",
+          "start_date": "2025-11-30T12:00:00Z",
+          "end_date": null
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "valerian",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "active-drug-015",
+    "category": "ACTIVE_DRUG",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "active-drug-015",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "levothyroxine",
+          "start_date": "2025-11-30T12:00:00Z",
+          "end_date": null
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "ashwagandha",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "active-drug-016",
+    "category": "ACTIVE_DRUG",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "active-drug-016",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "cyclosporine",
+          "start_date": "2025-11-30T12:00:00Z",
+          "end_date": null
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "ashwagandha",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "active-drug-017",
+    "category": "ACTIVE_DRUG",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "active-drug-017",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "lisinopril",
+          "start_date": "2025-11-30T12:00:00Z",
+          "end_date": null
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "licorice",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "active-drug-018",
+    "category": "ACTIVE_DRUG",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "active-drug-018",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "furosemide",
+          "start_date": "2025-11-30T12:00:00Z",
+          "end_date": null
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "licorice",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "active-drug-019",
+    "category": "ACTIVE_DRUG",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "active-drug-019",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "digoxin",
+          "start_date": "2025-11-30T12:00:00Z",
+          "end_date": null
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "licorice",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "active-drug-020",
+    "category": "ACTIVE_DRUG",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "active-drug-020",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "diazepam",
+          "start_date": "2025-11-30T12:00:00Z",
+          "end_date": null
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "kava",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "active-drug-021",
+    "category": "ACTIVE_DRUG",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "active-drug-021",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "acetaminophen",
+          "start_date": "2025-11-30T12:00:00Z",
+          "end_date": null
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "kava",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "active-drug-022",
+    "category": "ACTIVE_DRUG",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "active-drug-022",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "warfarin",
+          "start_date": "2025-11-30T12:00:00Z",
+          "end_date": null
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "ginkgo",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "active-drug-023",
+    "category": "ACTIVE_DRUG",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "active-drug-023",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "carbamazepine",
+          "start_date": "2025-11-30T12:00:00Z",
+          "end_date": null
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "ginkgo",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "active-drug-024",
+    "category": "ACTIVE_DRUG",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "active-drug-024",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "cyclosporine",
+          "start_date": "2025-11-30T12:00:00Z",
+          "end_date": null
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "echinacea",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "washout-000",
+    "category": "WASHOUT",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "washout-000",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "sertraline",
+          "start_date": "2025-09-01T12:00:00Z",
+          "end_date": "2026-02-27T12:00:00Z"
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "st. john's wort",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "washout-001",
+    "category": "WASHOUT",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "washout-001",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "venlafaxine",
+          "start_date": "2025-09-01T12:00:00Z",
+          "end_date": "2026-02-27T12:00:00Z"
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "st. john's wort",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "washout-002",
+    "category": "WASHOUT",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "washout-002",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "birth control",
+          "start_date": "2025-09-01T12:00:00Z",
+          "end_date": "2026-02-27T12:00:00Z"
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "st. john's wort",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "washout-003",
+    "category": "WASHOUT",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "washout-003",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "cyclosporine",
+          "start_date": "2025-09-01T12:00:00Z",
+          "end_date": "2026-02-27T12:00:00Z"
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "st. john's wort",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "washout-004",
+    "category": "WASHOUT",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "washout-004",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "warfarin",
+          "start_date": "2025-09-01T12:00:00Z",
+          "end_date": "2026-02-27T12:00:00Z"
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "st. john's wort",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "washout-005",
+    "category": "WASHOUT",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "washout-005",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "saquinavir",
+          "start_date": "2025-09-01T12:00:00Z",
+          "end_date": "2026-02-27T12:00:00Z"
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "st. john's wort",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "washout-006",
+    "category": "WASHOUT",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "washout-006",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "atorvastatin",
+          "start_date": "2025-09-01T12:00:00Z",
+          "end_date": "2026-02-27T12:00:00Z"
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "grapefruit",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "washout-007",
+    "category": "WASHOUT",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "washout-007",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "amlodipine",
+          "start_date": "2025-09-01T12:00:00Z",
+          "end_date": "2026-02-27T12:00:00Z"
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "grapefruit",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "washout-008",
+    "category": "WASHOUT",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "washout-008",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "warfarin",
+          "start_date": "2025-09-01T12:00:00Z",
+          "end_date": "2026-02-27T12:00:00Z"
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "turmeric",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "washout-009",
+    "category": "WASHOUT",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "washout-009",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "heparin",
+          "start_date": "2025-09-01T12:00:00Z",
+          "end_date": "2026-02-27T12:00:00Z"
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "turmeric",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "washout-010",
+    "category": "WASHOUT",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "washout-010",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "metformin",
+          "start_date": "2025-09-01T12:00:00Z",
+          "end_date": "2026-02-27T12:00:00Z"
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "turmeric",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "washout-011",
+    "category": "WASHOUT",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "washout-011",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "warfarin",
+          "start_date": "2025-09-01T12:00:00Z",
+          "end_date": "2026-02-27T12:00:00Z"
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "ginger",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "washout-012",
+    "category": "WASHOUT",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "washout-012",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "heparin",
+          "start_date": "2025-09-01T12:00:00Z",
+          "end_date": "2026-02-27T12:00:00Z"
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "ginger",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "washout-013",
+    "category": "WASHOUT",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "washout-013",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "diazepam",
+          "start_date": "2025-09-01T12:00:00Z",
+          "end_date": "2026-02-27T12:00:00Z"
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "valerian",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "washout-014",
+    "category": "WASHOUT",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "washout-014",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "sedative",
+          "start_date": "2025-09-01T12:00:00Z",
+          "end_date": "2026-02-27T12:00:00Z"
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "valerian",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "washout-015",
+    "category": "WASHOUT",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "washout-015",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "levothyroxine",
+          "start_date": "2025-09-01T12:00:00Z",
+          "end_date": "2026-02-27T12:00:00Z"
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "ashwagandha",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "washout-016",
+    "category": "WASHOUT",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "washout-016",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "cyclosporine",
+          "start_date": "2025-09-01T12:00:00Z",
+          "end_date": "2026-02-27T12:00:00Z"
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "ashwagandha",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "washout-017",
+    "category": "WASHOUT",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "washout-017",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "lisinopril",
+          "start_date": "2025-09-01T12:00:00Z",
+          "end_date": "2026-02-27T12:00:00Z"
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "licorice",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "washout-018",
+    "category": "WASHOUT",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "washout-018",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "furosemide",
+          "start_date": "2025-09-01T12:00:00Z",
+          "end_date": "2026-02-27T12:00:00Z"
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "licorice",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "washout-019",
+    "category": "WASHOUT",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "washout-019",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "digoxin",
+          "start_date": "2025-09-01T12:00:00Z",
+          "end_date": "2026-02-27T12:00:00Z"
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "licorice",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "washout-020",
+    "category": "WASHOUT",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "washout-020",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "diazepam",
+          "start_date": "2025-09-01T12:00:00Z",
+          "end_date": "2026-02-27T12:00:00Z"
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "kava",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "washout-021",
+    "category": "WASHOUT",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "washout-021",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "acetaminophen",
+          "start_date": "2025-09-01T12:00:00Z",
+          "end_date": "2026-02-27T12:00:00Z"
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "kava",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "washout-022",
+    "category": "WASHOUT",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "washout-022",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "warfarin",
+          "start_date": "2025-09-01T12:00:00Z",
+          "end_date": "2026-02-27T12:00:00Z"
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "ginkgo",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "washout-023",
+    "category": "WASHOUT",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "washout-023",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "carbamazepine",
+          "start_date": "2025-09-01T12:00:00Z",
+          "end_date": "2026-02-27T12:00:00Z"
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "ginkgo",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "washout-024",
+    "category": "WASHOUT",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "washout-024",
+      "allergies": [],
+      "current_medications": [
+        {
+          "drug_name": "cyclosporine",
+          "start_date": "2025-09-01T12:00:00Z",
+          "end_date": "2026-02-27T12:00:00Z"
+        }
+      ],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "echinacea",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "allergy-000",
+    "category": "ALLERGY",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "allergy-000",
+      "allergies": [
+        "st. john's wort"
+      ],
+      "current_medications": [],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "st. john's wort",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "allergy-001",
+    "category": "ALLERGY",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "allergy-001",
+      "allergies": [
+        "grapefruit"
+      ],
+      "current_medications": [],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "grapefruit",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "allergy-002",
+    "category": "ALLERGY",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "allergy-002",
+      "allergies": [
+        "turmeric"
+      ],
+      "current_medications": [],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "turmeric",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "allergy-003",
+    "category": "ALLERGY",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "allergy-003",
+      "allergies": [
+        "ginger"
+      ],
+      "current_medications": [],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "ginger",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "allergy-004",
+    "category": "ALLERGY",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "allergy-004",
+      "allergies": [
+        "valerian"
+      ],
+      "current_medications": [],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "valerian",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "allergy-005",
+    "category": "ALLERGY",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "allergy-005",
+      "allergies": [
+        "ashwagandha"
+      ],
+      "current_medications": [],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "ashwagandha",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "allergy-006",
+    "category": "ALLERGY",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "allergy-006",
+      "allergies": [
+        "licorice"
+      ],
+      "current_medications": [],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "licorice",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "allergy-007",
+    "category": "ALLERGY",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "allergy-007",
+      "allergies": [
+        "kava"
+      ],
+      "current_medications": [],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "kava",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "allergy-008",
+    "category": "ALLERGY",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "allergy-008",
+      "allergies": [
+        "ginkgo"
+      ],
+      "current_medications": [],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "ginkgo",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "allergy-009",
+    "category": "ALLERGY",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "allergy-009",
+      "allergies": [
+        "echinacea"
+      ],
+      "current_medications": [],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "echinacea",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "allergy-010",
+    "category": "ALLERGY",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "allergy-010",
+      "allergies": [
+        "chamomile"
+      ],
+      "current_medications": [],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "chamomile",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "allergy-011",
+    "category": "ALLERGY",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "allergy-011",
+      "allergies": [
+        "peppermint"
+      ],
+      "current_medications": [],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "peppermint",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "allergy-012",
+    "category": "ALLERGY",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "allergy-012",
+      "allergies": [
+        "lavender"
+      ],
+      "current_medications": [],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "lavender",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "allergy-013",
+    "category": "ALLERGY",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "allergy-013",
+      "allergies": [
+        "fennel"
+      ],
+      "current_medications": [],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "fennel",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "allergy-014",
+    "category": "ALLERGY",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "allergy-014",
+      "allergies": [
+        "rosemary"
+      ],
+      "current_medications": [],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "rosemary",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "allergy-015",
+    "category": "ALLERGY",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "allergy-015",
+      "allergies": [
+        "holy basil"
+      ],
+      "current_medications": [],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "holy basil",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "allergy-016",
+    "category": "ALLERGY",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "allergy-016",
+      "allergies": [
+        "cinnamon"
+      ],
+      "current_medications": [],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "cinnamon",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "allergy-017",
+    "category": "ALLERGY",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "allergy-017",
+      "allergies": [
+        "cardamom"
+      ],
+      "current_medications": [],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "cardamom",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "allergy-018",
+    "category": "ALLERGY",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "allergy-018",
+      "allergies": [
+        "lemon balm"
+      ],
+      "current_medications": [],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "lemon balm",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "allergy-019",
+    "category": "ALLERGY",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "allergy-019",
+      "allergies": [
+        "dandelion"
+      ],
+      "current_medications": [],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "dandelion",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "allergy-020",
+    "category": "ALLERGY",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "allergy-020",
+      "allergies": [
+        "hibiscus"
+      ],
+      "current_medications": [],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "hibiscus",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "allergy-021",
+    "category": "ALLERGY",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "allergy-021",
+      "allergies": [
+        "moringa"
+      ],
+      "current_medications": [],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "moringa",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "allergy-022",
+    "category": "ALLERGY",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "allergy-022",
+      "allergies": [
+        "neem"
+      ],
+      "current_medications": [],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "neem",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "allergy-023",
+    "category": "ALLERGY",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "allergy-023",
+      "allergies": [
+        "shatavari"
+      ],
+      "current_medications": [],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "shatavari",
+      "intended_effect": "general wellness"
+    }
+  },
+  {
+    "id": "allergy-024",
+    "category": "ALLERGY",
+    "expected_safe": false,
+    "profile": {
+      "user_id": "allergy-024",
+      "allergies": [
+        "brahmi"
+      ],
+      "current_medications": [],
+      "symptom_onset_hours": 0
+    },
+    "proposal": {
+      "herb_or_remedy_name": "brahmi",
+      "intended_effect": "general wellness"
+    }
+  }
+]
