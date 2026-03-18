@@ -11,7 +11,7 @@ Version: 4.0.0
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# DIAGNOSTICIAN PROMPT — GPT-5-mini Clinical Diagnosis Engine
+# DIAGNOSTICIAN PROMPT — GPT-4.1 Clinical Diagnosis Engine
 # ─────────────────────────────────────────────────────────────────────────────
 
 DIAGNOSTICIAN_PROMPT = """You are a clinical diagnostician AI with deep expertise in internal medicine, infectious disease, and emergency triage. Your task is to analyze patient symptoms and produce a structured diagnostic assessment with detailed clinical reasoning.

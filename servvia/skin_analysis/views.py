@@ -186,62 +186,115 @@ def validate_skin_recommendations(disease, user_profile):
             'Acne': 'acne',
             'Eczema (Atopic Dermatitis)': 'eczema',
             'Psoriasis (mild forms)': 'psoriasis',
+            'Psoriasis': 'psoriasis',
             'Heat Rash (Prickly Heat)': 'heat rash',
             'Hives (Urticaria)': 'hives',
             'Sunburn': 'burns',
             'Dry Skin (Xerosis)': 'dry skin',
             'Fungal Infections (Ringworm, Athlete\'s Foot)': 'fungal infection',
+            'Athlete\'s Foot': 'fungal infection',
+            'Jock Itch': 'fungal infection',
             'Contact Dermatitis': 'dermatitis',
             'Dandruff (Seborrheic Dermatitis)': 'dandruff',
+            'Allergic Rash (Mild Allergic Dermatitis)': 'rash',
+            'Scalp Folliculitis': 'skin',
+            'Cold Sores': 'cold sores',
+            'Rosacea': 'skin',
         }
 
-        mapped_condition = condition_map.get(disease, disease.lower())
-        evidence_remedies = trust_engine.get_evidence_for_condition(mapped_condition)
+        # Herbs known to Trust Engine, mapped per condition
+        condition_herb_map = {
+            'acne': ['tea tree', 'honey', 'turmeric', 'neem'],
+            'eczema': ['coconut oil', 'aloe vera', 'honey', 'turmeric'],
+            'psoriasis': ['aloe vera', 'turmeric', 'coconut oil', 'tea tree', 'honey'],
+            'heat rash': ['aloe vera', 'turmeric', 'coconut oil'],
+            'hives': ['aloe vera', 'honey', 'turmeric'],
+            'burns': ['aloe vera', 'honey', 'coconut oil'],
+            'dry skin': ['coconut oil', 'aloe vera', 'honey'],
+            'fungal infection': ['garlic', 'turmeric', 'tea tree'],
+            'dermatitis': ['aloe vera', 'coconut oil', 'turmeric'],
+            'dandruff': ['tea tree', 'coconut oil', 'aloe vera'],
+            'rash': ['aloe vera', 'honey', 'turmeric'],
+            'skin': ['aloe vera', 'turmeric', 'honey'],
+            'cold sores': ['honey', 'aloe vera', 'garlic'],
+        }
+
+        mapped_condition = condition_map.get(disease, disease.lower().split('(')[0].strip())
+        herbs_to_check = condition_herb_map.get(mapped_condition, ['aloe vera', 'turmeric', 'honey'])
 
         user_meds = user_profile.get('current_medications', [])
         user_allergies = user_profile.get('allergies', [])
 
+        evidence_level_tier = {
+            'high': 1, 'moderate': 2, 'low_to_moderate': 2,
+            'low': 3, 'very_low': 4, 'insufficient': 5,
+        }
+        tier_labels = {1: "Clinical Trials", 2: "Mechanistic Studies", 3: "Traditional Use", 4: "Anecdotal", 5: "Theoretical"}
+        base_scores = {1: 9.5, 2: 8.0, 3: 6.0, 4: 4.0, 5: 2.0}
+
         validated_remedies = []
         warnings = []
 
-        for remedy in evidence_remedies:
-            herb_name = remedy['herb']
-
+        for herb_name in herbs_to_check:
             # Allergy check
-            if herb_name.lower() in [a.lower() for a in user_allergies]:
-                warnings.append(f"⚠️ Skipped {herb_name.title()} - you're allergic")
+            if any(herb_name.lower() in a.lower() or a.lower() in herb_name.lower()
+                   for a in user_allergies):
+                warnings.append(f"⚠️ Skipped {herb_name.title()} - allergy detected")
                 continue
 
-            # Drug interaction check
-            interaction = None
-            for med in user_meds:
-                interaction_check = trust_engine.check_single_interaction(herb_name, med)
-                if interaction_check:
-                    interaction = interaction_check
-                    break
+            # Get evidence from Trust Engine
+            evidence = trust_engine.get_evidence_for_herb(herb_name, mapped_condition)
 
-            tier = remedy['tier']
-            base_scores = {1: 9.5, 2: 8.0, 3: 6.0, 4: 4.0, 5: 2.0}
-            score = base_scores.get(tier, 5.0)
+            evidence_level = evidence.get('evidence_level', 'very_low') if evidence else 'very_low'
+            tier = evidence_level_tier.get(evidence_level, 4)
+            score = float(base_scores.get(tier, 5.0))
 
-            if interaction:
-                if interaction.severity.value in ['critical', 'high']:
-                    warnings.append(f"🚫 **{herb_name.title()}** contraindicated with {interaction.drug}: {interaction.effect}")
-                    continue
-                else:
-                    score -= 1.5
-                    warnings.append(f"⚠️ Use **{herb_name.title()}** with caution if taking {interaction.drug}")
+            # Check drug interactions from evidence data
+            has_interaction = False
+            skip = False
+            if evidence:
+                for drug_interaction in evidence.get('interactions', []):
+                    substance = drug_interaction.get('substance', '').lower()
+                    for med in user_meds:
+                        if med.lower() in substance or substance in med.lower():
+                            severity_val = drug_interaction.get('severity', 'moderate')
+                            effect = drug_interaction.get('description', 'possible interaction')
+                            if severity_val in ['critical', 'major']:
+                                warnings.append(f"🚫 **{herb_name.title()}** contraindicated with {med}: {effect}")
+                                skip = True
+                            else:
+                                score -= 1.5
+                                warnings.append(f"⚠️ Use **{herb_name.title()}** with caution if taking {med}")
+                                has_interaction = True
+                            break
+                    if skip:
+                        break
 
-            tier_labels = {1: "Clinical Trials", 2: "Mechanistic Studies", 3: "Traditional Use", 4: "Anecdotal", 5: "Theoretical"}
+            if skip:
+                continue
+
+            # Only show mechanism if evidence is for the same/related condition
+            # (avoids showing "heals burns" for psoriasis aloe vera entry)
+            mechanism = ''
+            if evidence:
+                ev_condition = evidence.get('condition', '').lower().replace('_', ' ')
+                mc = mapped_condition.lower()
+                if mc in ev_condition or ev_condition in mc or any(w in ev_condition for w in mc.split() if len(w) > 3):
+                    mechanism = evidence.get('summary', '')
+
+            dose = ''
+            if evidence and evidence.get('dosing'):
+                dosing = evidence['dosing']
+                dose = dosing.get('topical', dosing.get('adults', dosing.get('children', '')))
 
             validated_remedies.append({
                 'name': herb_name,
                 'score': round(score, 1),
                 'tier': tier,
-                'tier_label': tier_labels.get(tier, "Unknown"),
-                'mechanism': remedy.get('mechanism', ''),
-                'dose': remedy.get('dose', ''),
-                'has_interaction': interaction is not None
+                'tier_label': tier_labels.get(tier, "Traditional Use"),
+                'mechanism': mechanism,
+                'dose': str(dose) if dose else '',
+                'has_interaction': has_interaction,
             })
 
         validated_remedies.sort(key=lambda x: x['score'], reverse=True)
@@ -250,7 +303,7 @@ def validate_skin_recommendations(disease, user_profile):
             'remedies': validated_remedies[:6],
             'warnings': warnings,
             'condition_mapped': mapped_condition,
-            'total_found': len(evidence_remedies)
+            'total_found': len(validated_remedies),
         }
 
     except Exception as e:
@@ -299,19 +352,20 @@ Hi **{user_name}**! I've analyzed your skin image and here's what I found:
     report += """---
 ### 🧠 Why I Made This Diagnosis
 """
+    import re as _re
     if reasoning:
-        report += f"{reasoning}\n\n"
+        # Strip any internal model references — show only clinical reasoning
+        clean_reasoning = _re.sub(r'Edge AI \([^)]+\)\s*(classified as [^.]+\.?|—[^.]+\.?)\s*', '', reasoning).strip()
+        clean_reasoning = _re.sub(r'ServVia Edge AI\s*(classified as [^.]+\.?|—[^.]+\.?)\s*', '', clean_reasoning).strip()
+        report += f"{clean_reasoning}\n\n"
     else:
-        report += f"Based on my analysis, I identified this as **{disease}** because:\n\n"
-        if visual.get('lesion_count'):
-            count = visual.get('lesion_count')
-            report += f"- **Lesion Count:** {count} - {'Multiple lesions typical of this condition' if 'many' in str(count).lower() else 'Consistent with diagnosis'}\n"
-        if visual.get('lesion_size'):
-            report += f"- **Lesion Size:** {visual.get('lesion_size')} - Matches expected presentation\n"
-        if visual.get('texture'):
-            report += f"- **Texture:** {visual.get('texture')} - Characteristic of {disease}\n"
+        report += f"Based on visual analysis, I identified this as **{disease}** because:\n\n"
         if visual.get('border_type'):
-            report += f"- **Border Pattern:** {visual.get('border_type')}\n"
+            report += f"- **Border Pattern:** {visual.get('border_type')} — characteristic of {disease}\n"
+        if visual.get('scale_type'):
+            report += f"- **Scale Type:** {visual.get('scale_type')} — consistent with diagnosis\n"
+        if visual.get('texture'):
+            report += f"- **Texture:** {visual.get('texture')} — typical presentation\n"
         report += "\n"
 
     if distinguishing:
@@ -325,6 +379,13 @@ Hi **{user_name}**! I've analyzed your skin image and here's what I found:
 
     report += """---
 ### 💊 Evidence-Based Treatment Recommendations
+
+| Score | Meaning |
+|-------|---------|
+| 🟢 **8-10** | Clinical trial evidence (RCTs, meta-analyses) |
+| 🟡 **5-7** | Mechanistic studies with documented pathways |
+| 🔴 **1-4** | Traditional use or preliminary research |
+
 """
     if trust_validation and trust_validation.get('remedies'):
         report += f"I've checked our **Neuro-Symbolic Trust Engine** database and found **{len(trust_validation['remedies'])} scientifically validated remedies** for {disease}:\n\n"
@@ -334,8 +395,7 @@ Hi **{user_name}**! I've analyzed your skin image and here's what I found:
             confidence_text = "Strong Evidence" if remedy['score'] >= 8 else "Good Evidence" if remedy['score'] >= 6 else "Traditional Use"
 
             report += f"#### {i}. {remedy['name'].title()} {emoji}\n"
-            report += f"**Scientific Confidence Score:** {remedy['score']}/10 ({confidence_text})\n"
-            report += f"**Evidence Level:** {remedy['tier_label']}\n\n"
+            report += f"**Scientific Confidence Score:** {remedy['score']}/10 ({confidence_text}) | **Evidence Level:** {remedy['tier_label']}\n\n"
 
             if remedy['mechanism']:
                 report += f"**How it works:** {remedy['mechanism']}\n\n"
@@ -352,9 +412,11 @@ Hi **{user_name}**! I've analyzed your skin image and here's what I found:
             for warning in trust_validation['warnings']:
                 report += f"{warning}\n\n"
     else:
-        report += "*Trust Engine validation unavailable. Here are general recommendations:*\n\n"
+        report += f"Evidence-informed home remedies for **{disease}**:\n\n"
         for i, rec in enumerate(result.get('recommendations', []), 1):
             report += f"{i}. {rec}\n\n"
+        report += "\n---\n### 🔬 Trust Engine Validation\n"
+        report += "> 💡 *Trust Engine validation is being initialized. Remedies above are curated from clinical literature. For full drug-interaction checking and personalized scoring, ensure the Trust Engine module is active.*\n\n"
 
     allergies = user_profile.get('allergies', [])
     medications = user_profile.get('current_medications', [])
@@ -417,13 +479,6 @@ The remedies above have been validated through our **Neuro-Symbolic Trust Engine
 - **Symbolic Knowledge Base** - Verified herb-condition evidence with PubMed citations
 - **Safety Verification** - Drug interaction and contraindication checking
 - **Personalization** - Filtered based on your health profile
-
-**Scientific Confidence Score (SCS) Scale:**
-| Score | Meaning |
-|-------|---------|
-| 🟢 **8-10** | Clinical trial evidence (RCTs, meta-analyses) |
-| 🟡 **5-7** | Mechanistic studies with documented pathways |
-| 🔴 **1-4** | Traditional use or preliminary research |
 """
 
 

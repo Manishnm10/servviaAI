@@ -204,15 +204,15 @@ async def _call_llm(
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# NODE: DIAGNOSTICIAN -GPT-5o-mini Clinical Diagnosis Engine
+# NODE: DIAGNOSTICIAN — GPT-4.1 Clinical Diagnosis Engine
 # ═══════════════════════════════════════════════════════════════════════════
 
 async def diagnostician_node(state: AgentState) -> dict:
     """
-    GPT-5o-mini diagnostic analysis node.
+    GPT-4.1 diagnostic analysis node.
     Produces a structured clinical assessment with reasoning,
     individual symptom parsing, and per-symptom remedy suggestions.
-    Runs ONCE -revision loops skip this node and reuse cached diagnosis.
+    Runs ONCE — revision loops skip this node and reuse cached diagnosis.
     """
     from django_core.config import Config
 

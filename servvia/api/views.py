@@ -265,17 +265,27 @@ _MINOR_SOLO = {
     "itching", "stress", "anxiety", "upset stomach", "fatigue",
 }
 _SERIOUS_MARKERS = {
+    # Cardiac / respiratory
     "fever", "chest pain", "shortness of breath", "breathing",
-    "confusion", "vision", "seizure", "blood", "stiff neck",
-    "one side", "slurred", "yellowing", "swelling", "rash",
+    # Neurological
+    "confusion", "vision", "seizure", "stiff neck", "one side", "slurred",
+    # Bleeding / systemic
+    "blood", "swelling", "rash", "yellowing",
+    # Hepatobiliary — jaundice, cholestasis, hepatitis
+    "dark urine", "tea-colored", "tea colored", "cola-colored", "cola colored",
+    "pale stool", "clay-colored", "clay colored", "pale stool",
+    "jaundice", "jaundiced", "pruritus", "bilirubin",
+    "liver", "hepatitis", "cholestasis", "biliary",
+    # Gastrointestinal serious
+    "vomiting blood", "black stool", "tarry stool",
 }
 
 
 def _needs_diagnosis(query_lower: str) -> bool:
-    """Determine if the query needs GPT-5-mini diagnosis (serious/multi-symptom)."""
+    """Determine if the query needs GPT-4.1 diagnosis (serious/multi-symptom)."""
     has_serious_marker = any(m in query_lower for m in _SERIOUS_MARKERS)
     word_count = len(query_lower.split())
-    return has_serious_marker or word_count > 15
+    return has_serious_marker or word_count >= 12
 
 
 # ═══════════════════════════════════════════════════════════════════════════

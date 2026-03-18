@@ -49,21 +49,20 @@ class Config:
     OUT_OF_CONTEXT_PROMPT = ENV_CONFIG.get("OUT_OF_CONTEXT_PROMPT")
     RESPONSE_GEN_PROMPT = ENV_CONFIG.get("RESPONSE_GEN_PROMPT")
 
-    # openAI config — supports OpenAI direct OR GitHub Models endpoint
-    GITHUB_TOKEN = ENV_CONFIG.get("GITHUB_TOKEN")
-    OPEN_AI_KEY = ENV_CONFIG.get("OPENAI_API_KEY") or GITHUB_TOKEN
-    OPENAI_BASE_URL = (
-        "https://models.inference.ai.azure.com"
-        if GITHUB_TOKEN and not ENV_CONFIG.get("OPENAI_API_KEY")
-        else None  # None = default OpenAI endpoint
-    )
+    # Azure OpenAI config
+    AZURE_OPENAI_API_KEY = ENV_CONFIG.get("AZURE_OPENAI_API_KEY")
+    AZURE_OPENAI_ENDPOINT = ENV_CONFIG.get("AZURE_OPENAI_ENDPOINT")
+    AZURE_OPENAI_API_VERSION = ENV_CONFIG.get("AZURE_OPENAI_API_VERSION", "2025-01-01-preview")
+    # Backward-compat stubs — keeps tts.py and any legacy code from crashing
+    OPEN_AI_KEY = None
+    OPENAI_BASE_URL = None
     # Three-model architecture:
-    #   MASTER (gpt-5o-mini)  — Diagnostician: deep medical knowledge, temp=0.2
-    #   BRAIN  (o3-mini)      — Critic/Safety: reasoning model, no temp support
-    #   CHAT   (gpt-5o-mini)  — Proposer/Lab/TTS: general-purpose, temp=0.3
-    MODEL_MASTER = ENV_CONFIG.get("MODEL_MASTER", "gpt-5o-mini")
-    MODEL_BRAIN = ENV_CONFIG.get("MODEL_BRAIN", "o3-mini")
-    MODEL_CHAT = ENV_CONFIG.get("MODEL_CHAT", "gpt-5o-mini")
+    #   MASTER (gpt-4.1)      — Diagnostician: frontier clinical reasoning, temp=0.2
+    #   BRAIN  (gpt-4.1-mini) — Critic/Safety: fast verification, temp=0
+    #   CHAT   (gpt-4.1-mini) — Proposer/Lab/TTS/OCR: general-purpose, temp=0.3
+    MODEL_MASTER = ENV_CONFIG.get("MODEL_MASTER", "gpt-4.1")
+    MODEL_BRAIN = ENV_CONFIG.get("MODEL_BRAIN", "gpt-4.1-mini")
+    MODEL_CHAT = ENV_CONFIG.get("MODEL_CHAT", "gpt-4.1-mini")
 
     # Reasoning models that don't support temperature parameter
     # These models use reasoning_effort instead
@@ -86,9 +85,9 @@ class Config:
     }
 
     # Legacy aliases (backwards compat for code that references old names)
-    GPT_3_MODEL = MODEL_CHAT
-    GPT_4_MODEL = MODEL_CHAT
-    GPT_5_MINI_MODEL = MODEL_MASTER
+    GPT_3_MODEL = MODEL_CHAT      # → gpt-4.1-mini
+    GPT_4_MODEL = MODEL_CHAT      # → gpt-4.1-mini
+    GPT_5_MINI_MODEL = MODEL_MASTER  # → gpt-4.1
 
     TEMPERATURE = ENV_CONFIG.get("TEMPERATURE", 0)
     MAX_TOKENS = ENV_CONFIG.get("MAX_TOKENS", 500)

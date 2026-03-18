@@ -38,21 +38,21 @@ try:
 except Exception as e:
     logger.warning(f"⚠️ Google TTS credentials not available: {e}")
 
-# OpenAI client
+# OpenAI TTS client (Azure OpenAI)
 openai_client = None
 try:
-    from openai import OpenAI
-    api_key = Config.OPEN_AI_KEY
-    if api_key:
-        tts_kwargs = {"api_key": api_key}
-        if Config.OPENAI_BASE_URL:
-            tts_kwargs["base_url"] = Config.OPENAI_BASE_URL
-        openai_client = OpenAI(**tts_kwargs)
-        logger.info("✅ OpenAI TTS client initialized")
+    from openai import AzureOpenAI
+    if Config.AZURE_OPENAI_API_KEY and Config.AZURE_OPENAI_ENDPOINT:
+        openai_client = AzureOpenAI(
+            api_key=Config.AZURE_OPENAI_API_KEY,
+            azure_endpoint=Config.AZURE_OPENAI_ENDPOINT,
+            api_version=Config.AZURE_OPENAI_API_VERSION,
+        )
+        logger.info("✅ Azure OpenAI TTS client initialized")
     else:
-        logger.warning("⚠️ OpenAI API key not found for TTS")
+        logger.warning("⚠️ Azure OpenAI credentials not found for TTS")
 except Exception as e:
-    logger.warning(f"⚠️ OpenAI TTS client failed to initialize: {e}")
+    logger.warning(f"⚠️ Azure OpenAI TTS client failed to initialize: {e}")
 
 
 # ==========================================

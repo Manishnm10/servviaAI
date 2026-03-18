@@ -11,7 +11,7 @@ from openai import (
 )
 
 from django_core.config import Config
-from openai import OpenAI, AsyncOpenAI
+from openai import AsyncAzureOpenAI
 from qdrant_client import QdrantClient
 from qdrant_client.http.models import Filter, FieldCondition, MatchValue
 from legacy_healthcare.common.constants import Constants
@@ -29,11 +29,11 @@ async def make_openai_request(
     """
     Make OpenAI API request with the prompt message and other relevant OpenAI configuration.
     """
-    client_kwargs = {"api_key": Config.OPEN_AI_KEY}
-    if Config.OPENAI_BASE_URL:
-        client_kwargs["base_url"] = Config.OPENAI_BASE_URL
-    async_client = AsyncOpenAI(**client_kwargs)
-    openai.api_key = Config.OPEN_AI_KEY
+    async_client = AsyncAzureOpenAI(
+        api_key=Config.AZURE_OPENAI_API_KEY,
+        azure_endpoint=Config.AZURE_OPENAI_ENDPOINT,
+        api_version=Config.AZURE_OPENAI_API_VERSION,
+    )
 
     exception_string = ""
     retries = 0

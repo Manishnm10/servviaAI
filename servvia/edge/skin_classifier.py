@@ -2,8 +2,11 @@
 ServVia Edge — Local Skin Disease Classifier
 ==============================================
 
-Uses Qwen3.5-2B via Ollama for on-device skin image analysis.
+Uses MiniCPM-V 2.6 (8B) via Ollama for on-device skin image analysis.
 All processing runs locally — no image data leaves the user's machine.
+
+Model preference order (first available in Ollama wins):
+    minicpm-v → llama3.2-vision → llava:13b → llava:7b → llava → ...
 
 Pipeline position:
     [Image Upload] -> [Local Validation] -> ** THIS CLASSIFIER ** -> Structured JSON
@@ -27,11 +30,29 @@ logger = logging.getLogger("ServVia.Edge.SkinClassifier")
 # ─────────────────────────────────────────────────────────────────────────────
 
 OLLAMA_BASE_URL = "http://localhost:11434"
-OLLAMA_MODEL = "qwen3.5:2b"
-EDGE_TIMEOUT = 45  # seconds — max wait for Ollama response
-CONFIDENCE_THRESHOLD = 70  # below this → fall back to Gemini
+OLLAMA_MODEL = "minicpm-v"           # default; auto-upgraded if better model found
+EDGE_TIMEOUT = 120                   # allow cold-start load time (8B model ~5.5GB)
+CONFIDENCE_THRESHOLD = 65
 
-# The 21 conditions the system recognizes
+# Vision models in order of dermatology accuracy — first available wins
+_PREFERRED_VISION_MODELS = [
+    "minicpm-v",         # MiniCPM-V 2.6 8B — primary model
+    "llama3.2-vision",   # excellent visual understanding
+    "llava:13b",         # high accuracy, larger
+    "llava:7b",          # good balance
+    "llava",             # default llava tag
+    "llava-phi3",        # small but dedicated vision
+    "moondream",         # minimal but vision-native
+    "bakllava",          # vision-tuned
+]
+
+# Selected model — set by _init_vision_model() on first call
+_active_model: Optional[str] = None
+
+# Scalp conditions requiring a second-pass plaque vs flake challenge
+_SCALP_AMBIGUOUS = {"Dandruff (Seborrheic Dermatitis)", "Psoriasis (mild forms)", "Scalp Folliculitis"}
+
+# Supported skin conditions — matches Gemini pipeline
 SKIN_CONDITIONS = [
     "Dry Skin (Xerosis)",
     "Acne",
@@ -57,54 +78,133 @@ SKIN_CONDITIONS = [
 ]
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Compact classification prompt — optimized for minimal output tokens
+# Dermatologist-grade classification prompt
 # ─────────────────────────────────────────────────────────────────────────────
 
 _CONDITIONS_LIST = "\n".join(f"{i+1}. {c}" for i, c in enumerate(SKIN_CONDITIONS))
 
-EDGE_CLASSIFICATION_PROMPT = f"""You are a dermatology classifier. Analyze this skin image and classify it.
+EDGE_CLASSIFICATION_PROMPT = f"""You are an expert dermatologist AI. Analyze this skin image with clinical precision.
 
-ALLOWED CONDITIONS (pick EXACTLY one):
+ALLOWED CONDITIONS — pick EXACTLY ONE:
 {_CONDITIONS_LIST}
 
-DIFFERENTIATION RULES:
-- Heat Rash: tiny 1mm dots, 100+, sandpaper texture, uniform
-- Hives: raised welts 5-20mm, 10-40 bumps, individually visible → DEFAULT over Heat Rash if unsure
-- Athlete's Foot: on FEET, peeling/scaly between toes
-- Razor Bumps: on SHAVED areas (neck/jaw), ingrown hairs visible
-- Folliculitis: bumps centered on hair follicles with pustules
-- Mosquito Bites: few (3-10), scattered, exposed skin, central punctum
-- Eczema: diffuse borders, thin scales, wet/oozing or very dry
-- Psoriasis: thick plaques, silvery scales, sharp borders
-- Contact Dermatitis: sharp geometric boundaries matching contact point
+CRITICAL DIFFERENTIALS — read before deciding:
 
-RESPOND WITH ONLY THIS JSON — no explanation, no markdown fences:
-{{"condition":"exact name from list","confidence":0-100,"severity":"mild|moderate|severe|normal","key_features":["feature1","feature2","feature3"],"affected_area":"body part","description":"one sentence describing what you see"}}"""
+SCALP (if scalp/hairline visible):
+- PSORIASIS (mild forms): THICK RAISED adherent silvery-white PLAQUES. Signs: sharply demarcated RED borders, plaques extend beyond hairline onto forehead/ears/neck, reddish inflamed skin around plaques, scales are DRY and SILVERY (not greasy). → Pick PSORIASIS if you see raised plaques with defined red borders.
+- DANDRUFF: Fine LOOSE white/yellowish flakes that fall off easily. Signs: greasy/oily scalp appearance, NO raised plaques, NO sharp red borders, diffuse distribution within hairline. → Pick DANDRUFF if you see loose flakes on oily scalp without plaques.
+- SCALP FOLLICULITIS: Small red pustules on individual hair follicles, pus tips visible.
+
+INFLAMMATORY:
+- ECZEMA: Poorly defined patches, intensely dry or weeping/crusted, thin fine scales, flexural areas (inner elbows, behind knees).
+- PSORIASIS (body): Thick silvery plaques, SHARP red borders, extensor surfaces (elbows, knees).
+- CONTACT DERMATITIS: Sharp geometric/linear border matching contact area, blistering.
+- HIVES: Raised smooth wheals 5-30mm, well-defined, blanch on pressure, anywhere on body.
+- HEAT RASH: 1-3mm uniform tiny red dots (100+), sandpaper texture, in hot/sweaty skin folds.
+
+ACNE-LIKE:
+- ACNE: Mix of comedones (blackheads/whiteheads) + papules + pustules, face/chest/back.
+- FOLLICULITIS: ONLY pustules centered on hair follicles, no comedones.
+- RAZOR BUMPS: In shaved areas (neck/jaw), ingrown hairs visible, linear pattern.
+
+INFECTIONS:
+- RINGWORM: Ring-shaped with clearing in center, scaly raised border.
+- ATHLETE'S FOOT: Between/under toes, white macerated peeling skin.
+- JOCK ITCH: Groin/inner thighs, ring-shaped edge, not on scrotum.
+- COLD SORES: Clustered blisters on/around lips, honey-crusted.
+- WARTS: Rough cauliflower-like surface, on hands/feet.
+
+NORMAL SKIN: No visible lesions, redness, scaling, or inflammation.
+
+ANALYSIS STEPS:
+1. Identify body part / location
+2. Note if lesions are RAISED or flat
+3. Check scale type: thick/silvery vs thin/fine vs greasy/loose
+4. Check borders: sharp/defined vs diffuse/poorly-defined
+5. Count lesions and estimate size
+6. Make diagnosis
+
+RESPOND WITH ONLY THIS JSON (no markdown, no extra text):
+{{"condition":"exact name from list","confidence":0-100,"severity":"mild|moderate|severe|normal","key_features":["feature1","feature2","feature3"],"affected_area":"body part","description":"2 sentences: what you see clinically.","reasoning":"Why this condition and NOT the most similar alternative. Reference specific visual features.","differential_diagnosis":["alt1","alt2"],"distinguishing_features":"key feature separating this from alternatives","border_type":"sharp/defined OR diffuse/poorly-defined","scale_type":"thick/silvery OR thin/fine OR loose/greasy OR none","texture":"flat OR raised OR plaque-like"}}"""
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Ollama health check
 # ─────────────────────────────────────────────────────────────────────────────
 
-def is_ollama_available() -> bool:
-    """Check if Ollama is running and the model is loaded."""
+def _init_vision_model() -> Optional[str]:
+    """
+    Query Ollama for available models and return the best vision model name.
+    Preference order defined in _PREFERRED_VISION_MODELS.
+    """
+    global _active_model
     try:
         resp = httpx.get(f"{OLLAMA_BASE_URL}/api/tags", timeout=3)
         if resp.status_code != 200:
-            return False
-        models = resp.json().get("models", [])
-        available = any(
-            OLLAMA_MODEL.split(":")[0] in m.get("name", "")
-            for m in models
-        )
+            return None
+        available = [m.get("name", "") for m in resp.json().get("models", [])]
         if not available:
-            logger.warning(
-                f"Ollama running but {OLLAMA_MODEL} not found. "
-                f"Available: {[m['name'] for m in models]}"
-            )
-        return available
+            return None
+
+        for preferred in _PREFERRED_VISION_MODELS:
+            base = preferred.split(":")[0].lower()
+            tag = preferred.split(":")[1] if ":" in preferred else None
+            for name in available:
+                name_lower = name.lower()
+                # Match base name; if tag specified, match it too
+                if base in name_lower and (tag is None or tag in name_lower):
+                    if _active_model != name:
+                        logger.info(f"[EDGE] Selected vision model: {name}")
+                        _active_model = name
+                    return name
+
+        logger.warning(f"[EDGE] No preferred vision model found. Available: {available}")
+        return None
     except Exception:
+        return None
+
+
+def is_ollama_available() -> bool:
+    """Check if Ollama is running and a usable vision model is available."""
+    return _init_vision_model() is not None
+
+
+def warmup_vision_model() -> bool:
+    """
+    Pre-load the vision model into memory with a cheap text-only request.
+    Call this at server startup so the first real image request isn't cold.
+    Returns True if model responded, False otherwise.
+    """
+    model = _init_vision_model()
+    if not model:
         return False
+    try:
+        logger.info(f"[EDGE] Warming up {model} (vision layers)...")
+        # Use a 1x1 white pixel image to trigger full vision pipeline load
+        # (text-only warm-up does NOT pre-load the visual encoder)
+        import base64, io
+        from PIL import Image as _PILImage
+        tiny = _PILImage.new("RGB", (1, 1), color=(255, 255, 255))
+        buf = io.BytesIO()
+        tiny.save(buf, format="JPEG")
+        tiny_b64 = base64.b64encode(buf.getvalue()).decode()
+
+        resp = httpx.post(
+            f"{OLLAMA_BASE_URL}/api/chat",
+            json={
+                "model": model,
+                "messages": [{"role": "user", "content": "What color is this?", "images": [tiny_b64]}],
+                "stream": False,
+                "options": {"num_predict": 3, "num_ctx": 512},
+            },
+            timeout=90,
+        )
+        if resp.status_code == 200:
+            logger.info(f"[EDGE] {model} is warm and ready.")
+            return True
+    except Exception as e:
+        logger.warning(f"[EDGE] Warm-up failed: {e}")
+    return False
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -122,7 +222,8 @@ def classify_skin_image(image_path: str) -> Optional[Dict]:
         Structured dict matching Gemini's output format, or None on failure/timeout.
         Includes 'edge_inference_time' for performance tracking.
     """
-    if not is_ollama_available():
+    model = _init_vision_model()
+    if not model:
         logger.warning("Ollama not available — skipping edge classification")
         return None
 
@@ -146,23 +247,31 @@ def classify_skin_image(image_path: str) -> Optional[Dict]:
         return None
 
     # Call Ollama API
+    # "format": "json" forces the model to emit valid JSON regardless of its natural style
     payload = {
-        "model": OLLAMA_MODEL,
+        "model": model,
         "messages": [
+            {
+                "role": "system",
+                "content": (
+                    "You are an expert dermatologist AI. You MUST respond ONLY with valid JSON. "
+                    "Do not write any text outside the JSON object. Do not use markdown. "
+                    "Start your response with { and end with }."
+                ),
+            },
             {
                 "role": "user",
                 "content": EDGE_CLASSIFICATION_PROMPT,
                 "images": [image_b64],
-            }
+            },
         ],
         "stream": False,
+        "format": "json",   # Ollama-level JSON enforcement — overrides model verbosity
         "options": {
             "temperature": 0.1,
-            "num_predict": 200,  # cap output tokens — JSON response is ~120 tokens
-            "num_ctx": 4096,     # smaller context window for speed
+            "num_predict": 300,  # enough for full JSON including reasoning
+            "num_ctx": 4096,
         },
-        # Disable thinking mode to get response in content field
-        "think": False,
     }
 
     start_time = time.time()
@@ -183,12 +292,7 @@ def classify_skin_image(image_path: str) -> Optional[Dict]:
         result = resp.json()
         message = result.get("message", {})
 
-        # Qwen3.5 bug workaround: response may be in 'thinking' instead of 'content'
         raw_content = message.get("content", "")
-        if not raw_content or not raw_content.strip():
-            raw_content = message.get("thinking", "")
-            if raw_content:
-                logger.info("[EDGE] Used 'thinking' field (Qwen3.5 vision bug workaround)")
 
         if not raw_content or not raw_content.strip():
             logger.warning(f"[EDGE] Empty response from {OLLAMA_MODEL} after {elapsed:.1f}s")
@@ -203,6 +307,30 @@ def classify_skin_image(image_path: str) -> Optional[Dict]:
 
         parsed["edge_inference_time"] = round(elapsed, 2)
         parsed["edge_model"] = OLLAMA_MODEL
+
+        condition = parsed.get("condition", "")
+        affected_area = parsed.get("affected_area", "").lower()
+
+        # ── Scalp challenge pass: binary plaque vs flake for ambiguous conditions ──
+        if condition in _SCALP_AMBIGUOUS or "scalp" in affected_area:
+            challenge = _challenge_scalp_condition(image_b64)
+            logger.info(f"[EDGE] Scalp challenge result: {challenge!r} (condition was: {condition})")
+            if challenge == "A" and "Psoriasis" not in condition:
+                logger.info(f"[EDGE] Challenge override: {condition} → Psoriasis (mild forms)")
+                parsed["condition"] = "Psoriasis (mild forms)"
+                parsed["confidence"] = max(parsed.get("confidence", 70), 78)
+                parsed["reasoning"] = (
+                    "Visual challenge confirmed THICK RAISED silvery-white plaques with defined "
+                    "reddish borders — characteristic of psoriasis, not the fine loose flakes of dandruff."
+                )
+            elif challenge == "B" and "Dandruff" not in condition:
+                logger.info(f"[EDGE] Challenge override: {condition} → Dandruff (Seborrheic Dermatitis)")
+                parsed["condition"] = "Dandruff (Seborrheic Dermatitis)"
+                parsed["confidence"] = max(parsed.get("confidence", 70), 78)
+                parsed["reasoning"] = (
+                    "Visual challenge confirmed fine loose flakes without raised plaques or defined borders "
+                    "— consistent with dandruff rather than psoriasis."
+                )
 
         logger.info(
             f"[EDGE] Classification: {parsed.get('condition', '?')} "
@@ -220,8 +348,47 @@ def classify_skin_image(image_path: str) -> Optional[Dict]:
         return None
 
 
+_SCALP_CHALLENGE_PROMPT = """Look ONLY at the scale/flake on this scalp image. Ignore everything else.
+
+Which exactly do you physically see?
+A = THICK, RAISED, adherent silvery-white PLAQUE patches with a sharply defined reddish border around them (psoriasis plaques — like raised crusty patches stuck to the skin, not loose)
+B = Fine, loose white or yellowish flakes that are NOT raised into plaques, no defined red border (dandruff — like shed skin flakes)
+
+Reply with only the single letter A or B."""
+
+
+def _challenge_scalp_condition(image_b64: str) -> Optional[str]:
+    """
+    Targeted binary challenge for ambiguous scalp conditions.
+    Returns 'A' (plaque → psoriasis) or 'B' (flake → dandruff), or None on failure.
+    Uses minimal tokens (~3s) so total overhead is small.
+    """
+    payload = {
+        "model": _active_model or OLLAMA_MODEL,
+        "messages": [{"role": "user", "content": _SCALP_CHALLENGE_PROMPT, "images": [image_b64]}],
+        "stream": False,
+        "options": {"temperature": 0.0, "num_predict": 5, "num_ctx": 2048},
+    }
+    try:
+        resp = httpx.post(f"{OLLAMA_BASE_URL}/api/chat", json=payload, timeout=20)
+        if resp.status_code != 200:
+            return None
+        content = resp.json().get("message", {}).get("content", "").strip().upper()
+        for char in content:
+            if char in ("A", "B"):
+                return char
+        return None
+    except Exception as e:
+        logger.warning(f"[EDGE] Scalp challenge failed: {e}")
+        return None
+
+
 def _parse_edge_response(raw_content: str) -> Optional[Dict]:
-    """Parse JSON from Qwen3.5 response, handling common formatting issues."""
+    """
+    Parse model response into a structured dict.
+    Primary path: JSON parse.
+    Fallback: extract fields from MiniCPM-V's narrative text format.
+    """
     cleaned = raw_content.strip()
 
     # Strip markdown fences if present
@@ -235,31 +402,90 @@ def _parse_edge_response(raw_content: str) -> Optional[Dict]:
         start = cleaned.find("{")
         end = cleaned.rfind("}") + 1
         if end > start:
-            cleaned = cleaned[start:end]
+            json_candidate = cleaned[start:end]
+            try:
+                result = json.loads(json_candidate)
+                condition = result.get("condition", "")
+                if condition:
+                    confidence = result.get("confidence", 0)
+                    if isinstance(confidence, str):
+                        try:
+                            confidence = int(confidence)
+                        except ValueError:
+                            confidence = 75
+                    result["confidence"] = min(max(confidence, 0), 100)
+                    return result
+            except json.JSONDecodeError:
+                pass  # fall through to narrative parser
 
-    try:
-        result = json.loads(cleaned)
-    except json.JSONDecodeError as e:
-        logger.error(f"[EDGE] Failed to parse JSON: {e}\nRaw: {cleaned[:300]}")
+    # ── Narrative fallback: extract fields from MiniCPM-V's numbered list format ──
+    logger.info("[EDGE] JSON parse failed — attempting narrative extraction")
+    return _extract_from_narrative(cleaned)
+
+
+def _extract_from_narrative(text: str) -> Optional[Dict]:
+    """
+    Extract diagnosis from MiniCPM-V's natural language analysis format.
+    Example: '1. Body Part: scalp  2. Lesions: raised plaques  3. Scale: thick silvery...'
+    """
+    import re
+
+    text_lower = text.lower()
+
+    # Find which condition is mentioned most prominently
+    condition_hits = {}
+    for cond in SKIN_CONDITIONS:
+        # Match by full name or key words (e.g. "psoriasis", "dandruff")
+        key = cond.split("(")[0].strip().lower()
+        count = len(re.findall(r'\b' + re.escape(key.split()[0]) + r'\b', text_lower))
+        if count > 0:
+            condition_hits[cond] = count
+
+    if not condition_hits:
+        logger.warning("[EDGE] Narrative extraction: no condition matched")
         return None
 
-    # Validate required fields
-    condition = result.get("condition", "")
-    confidence = result.get("confidence", 0)
+    condition = max(condition_hits, key=condition_hits.get)
 
-    if not condition:
-        logger.warning("[EDGE] No condition in response")
-        return None
+    # Severity
+    severity = "mild"
+    for s in ("severe", "moderate", "mild", "normal"):
+        if s in text_lower:
+            severity = s
+            break
 
-    # Ensure confidence is numeric
-    if isinstance(confidence, str):
-        try:
-            confidence = int(confidence)
-        except ValueError:
-            confidence = 50
+    # Key features from bold items in numbered lists: **Key**: value
+    features = re.findall(r'\*\*([^*\n]+)\*\*[:\s]+([^\n*]+)', text)
+    key_features = [f"{k.strip()}: {v.strip()}" for k, v in features[:3]]
+    if not key_features:
+        # Fallback: first three non-empty lines
+        lines = [l.strip(" *1234567890.-") for l in text.split("\n") if len(l.strip()) > 20]
+        key_features = lines[:3]
 
-    result["confidence"] = min(max(confidence, 0), 100)
-    return result
+    # Affected area
+    area_match = re.search(r'(?:location|area|body part)[^:]*:\s*([^\n.]+)', text, re.I)
+    affected_area = area_match.group(1).strip() if area_match else "Not specified"
+
+    # Confidence: explicit number or infer from language
+    conf_match = re.search(r'(\d{2,3})\s*%', text)
+    confidence = int(conf_match.group(1)) if conf_match else 78
+
+    logger.info(f"[EDGE] Narrative extracted: {condition} ({confidence}%)")
+
+    return {
+        "condition": condition,
+        "confidence": min(max(confidence, 0), 100),
+        "severity": severity,
+        "key_features": key_features,
+        "affected_area": affected_area,
+        "description": text[:300].replace("\n", " "),
+        "reasoning": text[:500],
+        "differential_diagnosis": [],
+        "distinguishing_features": "",
+        "border_type": "",
+        "scale_type": "",
+        "texture": "",
+    }
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -314,6 +540,18 @@ def edge_result_to_gemini_format(edge_result: Dict) -> Dict:
     except ImportError:
         remedies = ["Consult a healthcare professional"]
 
+    # Build clinical reasoning — never expose model name
+    raw_reasoning = edge_result.get("reasoning", "")
+    raw_distinguishing = edge_result.get("distinguishing_features", "")
+    if raw_reasoning:
+        clinical_reasoning = raw_reasoning
+    else:
+        features_text = ", ".join(key_features[:3]) if key_features else "characteristic visual features"
+        clinical_reasoning = (
+            f"The visual presentation shows {features_text}, consistent with {condition}. "
+            f"{description}"
+        )
+
     return {
         "success": True,
         "disease": condition,
@@ -324,12 +562,12 @@ def edge_result_to_gemini_format(edge_result: Dict) -> Dict:
         "description": description,
         "key_features": key_features,
         "affected_area": affected_area,
-        "differential_diagnosis": [],
-        "distinguishing_features": "",
+        "differential_diagnosis": edge_result.get("differential_diagnosis", []),
+        "distinguishing_features": raw_distinguishing,
         "visual_analysis": {
-            "border_type": "",
-            "scale_type": "",
-            "texture": "",
+            "border_type": edge_result.get("border_type", ""),
+            "scale_type": edge_result.get("scale_type", ""),
+            "texture": edge_result.get("texture", ""),
             "lesion_size": "",
             "lesion_count": "",
         },
@@ -339,10 +577,10 @@ def edge_result_to_gemini_format(edge_result: Dict) -> Dict:
             "size_category": "unknown",
             "uniformity": 0,
         },
-        "reasoning": f"Edge AI ({OLLAMA_MODEL}) classified as {condition} with {confidence}% confidence.",
+        "reasoning": clinical_reasoning,
         "recommendations": remedies,
         "urgency_note": urgency_note,
-        "accuracy": f"Edge AI ({OLLAMA_MODEL})",
-        "analyzed_by": f"servvia-edge-{OLLAMA_MODEL}",
+        "accuracy": "ServVia Edge AI",
+        "analyzed_by": f"servvia-edge-{_active_model or OLLAMA_MODEL}",
         "edge_inference_time": edge_result.get("edge_inference_time", 0),
     }

@@ -271,13 +271,14 @@ async def _stream_lab_llm(prompt: str) -> AsyncGenerator[str, None]:
         except Exception as e:
             logger.warning(f"Groq streaming failed ({e}), falling back to OpenAI")
 
-    # ── Fallback: OpenAI / GitHub Models streaming ──
-    from openai import AsyncOpenAI
+    # ── Fallback: Azure OpenAI streaming ──
+    from openai import AsyncAzureOpenAI
 
-    client_kwargs = {"api_key": Config.OPEN_AI_KEY}
-    if Config.OPENAI_BASE_URL:
-        client_kwargs["base_url"] = Config.OPENAI_BASE_URL
-    client = AsyncOpenAI(**client_kwargs)
+    client = AsyncAzureOpenAI(
+        api_key=Config.AZURE_OPENAI_API_KEY,
+        azure_endpoint=Config.AZURE_OPENAI_ENDPOINT,
+        api_version=Config.AZURE_OPENAI_API_VERSION,
+    )
 
     stream = await client.chat.completions.create(
         model=Config.MODEL_CHAT,

@@ -186,11 +186,12 @@ async def _llm_extract(raw_text: str) -> IdentityFingerprint:
             )
             content = response.choices[0].message.content.strip()
         else:
-            from openai import AsyncOpenAI
-            client_kwargs = {"api_key": Config.OPEN_AI_KEY}
-            if Config.OPENAI_BASE_URL:
-                client_kwargs["base_url"] = Config.OPENAI_BASE_URL
-            client = AsyncOpenAI(**client_kwargs)
+            from openai import AsyncAzureOpenAI
+            client = AsyncAzureOpenAI(
+                api_key=Config.AZURE_OPENAI_API_KEY,
+                azure_endpoint=Config.AZURE_OPENAI_ENDPOINT,
+                api_version=Config.AZURE_OPENAI_API_VERSION,
+            )
             response = await client.chat.completions.create(
                 model=Config.MODEL_CHAT,
                 messages=[{"role": "user", "content": prompt}],
