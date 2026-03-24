@@ -38,3 +38,7 @@ servvia/New Text Document.txt
 
 # Claude config
 .claude/
+CLAUDE.md
+
+# Test files
+servvia/skin_analysis/test/

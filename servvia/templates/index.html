@@ -1728,6 +1728,7 @@
       let accumulatedText = "";
       let completedStages = [];
       let streamingStarted = false;
+      let pendingRender = false;
 
       try {
         const response = await fetch(`${baseUrl}/api/skin/analyze/stream/`, {
@@ -1774,10 +1775,17 @@
                     textDiv.style.display = "block";
                   }
                   accumulatedText += data.text;
-                  textDiv.innerHTML = marked.parse(accumulatedText);
-                  textDiv.classList.add("typing");
-                  botMsg.scrollIntoView({ behavior: "smooth", block: "end" });
+                  if (!pendingRender) {
+                    pendingRender = true;
+                    requestAnimationFrame(() => {
+                      textDiv.innerHTML = marked.parse(accumulatedText);
+                      textDiv.classList.add("typing");
+                      botMsg.scrollIntoView({ behavior: "smooth", block: "end" });
+                      pendingRender = false;
+                    });
+                  }
                 } else if (currentEvent === "error") {
+                  accumulatedText = data.message || "Analysis failed. Please try again.";
                   stageDiv.innerHTML = `<i class="fas fa-exclamation-triangle" style="color:#ef4444"></i><span class="stream-stage-label" style="color:#ef4444">${data.message}</span>`;
                 }
               } catch (parseErr) {
@@ -1834,6 +1842,7 @@
       let accumulatedText = "";
       let completedStages = [];
       let streamingStarted = false;
+      let pendingRender = false;
 
       try {
         const response = await fetch(`${baseUrl}/api/lab-report/analyze/stream/`, {
@@ -1880,9 +1889,15 @@
                     textDiv.style.display = "block";
                   }
                   accumulatedText += data.text;
-                  textDiv.innerHTML = marked.parse(accumulatedText);
-                  textDiv.classList.add("typing");
-                  botMsg.scrollIntoView({ behavior: "smooth", block: "end" });
+                  if (!pendingRender) {
+                    pendingRender = true;
+                    requestAnimationFrame(() => {
+                      textDiv.innerHTML = marked.parse(accumulatedText);
+                      textDiv.classList.add("typing");
+                      botMsg.scrollIntoView({ behavior: "smooth", block: "end" });
+                      pendingRender = false;
+                    });
+                  }
                 } else if (currentEvent === "error") {
                   stageDiv.innerHTML = `<i class="fas fa-exclamation-triangle" style="color:#ef4444"></i><span class="stream-stage-label" style="color:#ef4444">${data.message}</span>`;
                 }

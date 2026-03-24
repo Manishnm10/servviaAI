@@ -23,7 +23,6 @@ logger = logging.getLogger(__name__)
 try:
     from google import genai
     GEMINI_AVAILABLE = True
-    logger.info("✅ ServVia AI available")
 except ImportError:
     GEMINI_AVAILABLE = False
     logger.error("❌ Gemini not available.  Install: pip install google-genai")
@@ -764,9 +763,34 @@ HIVES (Urticaria) indicators:
 - If only ankles/lower legs affected → Likely MOSQUITO BITES
 - If symmetric and widespread → Likely HIVES
 
-**ECZEMA vs PSORIASIS:**
-- ECZEMA: Wet/oozing or very dry, DIFFUSE borders, thin scales
-- PSORIASIS: Thick plaques, SILVERY scales, SHARP borders
+**🚨 CRITICAL: SCALP PSORIASIS vs DANDRUFF (Seborrheic Dermatitis) 🚨**
+
+This is the most commonly confused pair on scalp images. Read carefully before deciding.
+
+PSORIASIS (mild forms) — scalp indicators:
+- THICK, RAISED plaques that are STUCK to the scalp (not loose — you cannot blow them off)
+- Scales are DRY, SILVERY-WHITE, and adherent (crusty, layered, compacted)
+- SHARPLY DEFINED reddish/inflamed border around each plaque — like a clear boundary ring
+- Plaques often extend BEYOND the hairline onto the forehead, ears, or nape of neck
+- The skin UNDER the scale is red and inflamed
+- Scales sit on TOP of raised thickened skin
+
+DANDRUFF (Seborrheic Dermatitis) — scalp indicators:
+- Fine, LOOSE flakes — white or yellowish — that fall off easily with light touch
+- Scalp appears OILY or GREASY underneath
+- NO raised plaques — the scalp skin surface is NOT elevated or thickened
+- NO sharply defined red borders — any redness is diffuse and ill-defined
+- Flakes distributed throughout the scalp, not in distinct patches
+- Flakes are thin and powdery, NOT crusted or compacted
+
+**SCALP KEY DECISION:**
+- Can you see RAISED, STUCK-ON, SILVERY CRUSTY PATCHES with RED BORDERS? → PSORIASIS (mild forms)
+- Do you see LOOSE FLAKES on an OILY scalp with NO raised patches? → Dandruff (Seborrheic Dermatitis)
+- When in doubt on scalp: if there is ANY raised thickening or adherent crust → choose PSORIASIS
+
+**ECZEMA vs PSORIASIS (body, non-scalp):**
+- ECZEMA: Wet/oozing or very dry, DIFFUSE borders, thin fine scales, flexural areas
+- PSORIASIS: Thick adherent silver-white plaques, SHARP red borders, extensor surfaces
 
 **CONTACT DERMATITIS:**
 - SHARP GEOMETRIC boundaries matching contact point
@@ -819,7 +843,7 @@ Analyze this image now - PAY SPECIAL ATTENTION TO LESION COUNT AND SIZE:"""
         
         # Generate response
         response = client.models.generate_content(
-            model='gemini-2.0-flash',
+            model='gemini-3-flash-preview',
             contents=[prompt, img],
         )
         response_text = response.text. strip()

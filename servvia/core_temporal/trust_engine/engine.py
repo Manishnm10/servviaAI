@@ -1029,8 +1029,6 @@ class TrustEngine:
         output_parts.append("\n\n---\n")
         output_parts.append("## 🔬 Scientific Validation (Trust Engine)")
         output_parts.append("")
-        output_parts.append("*Evidence sourced from PubMed-indexed research. Always consult a healthcare provider.*")
-        output_parts.append("")
 
         # Drug interaction alerts (most critical — shown first)
         if interaction_warnings:

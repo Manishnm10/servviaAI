@@ -81,7 +81,7 @@ def analyze_skin_image(request):
             result = edge_result_to_gemini_format(edge_raw)
             if result is not None:
                 edge_used = True
-                logger.info(f"[EDGE] Skin analysis via Qwen3.5-2B: {result['disease']} ({edge_raw['confidence']}%) in {edge_raw.get('edge_inference_time', '?')}s")
+                logger.info(f"[EDGE] Skin analysis via Moondream2: {result['disease']} ({edge_raw['confidence']}%) in {edge_raw.get('edge_inference_time', '?')}s")
 
         # ── Fallback: Gemini (cloud) ──
         if result is None:
@@ -311,6 +311,27 @@ def validate_skin_recommendations(disease, user_profile):
         return None
 
 
+_FALLBACK_DOSES = {
+    "aloe vera":         "Apply pure gel directly to affected area 3–4× daily. Continue for 2–4 weeks.",
+    "turmeric":          "Mix ½ tsp turmeric with coconut oil into a paste. Apply to lesions for 15–20 min, rinse. Once daily for 3–4 weeks.",
+    "tea tree":          "Dilute 2–3 drops in 1 tsp carrier oil (coconut/jojoba). Apply with cotton pad 2× daily for 2–3 weeks.",
+    "coconut oil":       "Warm a small amount between palms. Massage into affected area 2–3× daily after bathing. Use for 2–4 weeks.",
+    "neem":              "Apply neem oil (diluted 1:10 with carrier oil) or neem leaf paste to skin 1–2× daily for 3 weeks.",
+    "calendula":         "Apply calendula cream or diluted tincture to affected area 2–3× daily. Continue for 2–3 weeks.",
+    "chamomile":         "Apply cooled chamomile tea compress for 10 min 2× daily, or use chamomile cream twice daily for 2 weeks.",
+    "honey":             "Apply a thin layer of raw/manuka honey to lesions. Cover with gauze for 20–30 min, rinse. Once daily for 2–3 weeks.",
+    "oatmeal":           "Add 1 cup colloidal oatmeal to lukewarm bath; soak 15–20 min daily. Or apply oatmeal paste for 10 min then rinse.",
+    "lavender":          "Dilute 3–4 drops lavender oil in 1 tsp carrier oil. Apply to affected area 2× daily for 2–3 weeks.",
+    "witch hazel":       "Apply undiluted to affected skin with cotton pad 2–3× daily. Continue for 1–2 weeks.",
+    "apple cider vinegar": "Dilute 1 part ACV in 3 parts water. Apply with cotton ball 1–2× daily for up to 2 weeks. Rinse after 15 min.",
+    "zinc":              "Apply zinc oxide cream to affected area after cleansing, 2–3× daily for 2–4 weeks.",
+    "salicylic acid":    "Apply 2% salicylic acid gel or cream to lesions once daily at night. Continue for 4–6 weeks.",
+}
+
+def _fallback_dose(herb_name: str) -> str:
+    return _FALLBACK_DOSES.get(herb_name.lower().strip(), "Apply topically to affected area 2× daily for 2–3 weeks. Discontinue if irritation occurs.")
+
+
 def build_detailed_skin_analysis(result, trust_validation, user_profile):
     """Build comprehensive, patient-friendly skin analysis report"""
     disease = result.get('disease', 'Unknown')
@@ -329,17 +350,26 @@ def build_detailed_skin_analysis(result, trust_validation, user_profile):
     if not user_name or user_name.lower() in ['user', '']:
         user_name = 'there'
 
-    report = f"""## 🔬 Skin Analysis Report
+    import re as _re
+
+    # Clean D2C pipeline technical prefix from reasoning
+    clean_reasoning = ""
+    if reasoning:
+        clean_reasoning = _re.sub(r'D2C pipeline:[^\.]+\.?\s*', '', reasoning).strip()
+        clean_reasoning = _re.sub(r'Edge AI \([^)]+\)\s*(classified as [^.]+\.?|—[^.]+\.?)\s*', '', clean_reasoning).strip()
+        clean_reasoning = _re.sub(r'ServVia Edge AI\s*(classified as [^.]+\.?|—[^.]+\.?)\s*', '', clean_reasoning).strip()
+
+    report = f"""## Skin Analysis Report
 Hi **{user_name}**! I've analyzed your skin image and here's what I found:
 ---
-### 🏥 Diagnosis: **{disease}**
+### Diagnosis: **{disease}**
 | | |
 |---|---|
 | **Confidence** | {confidence_pct}% |
 | **Severity** | {severity} |
 | **Affected Area** | {affected_area} |
 ---
-### 📋 What I'm Seeing
+### Why I Made This Diagnosis
 {description}
 """
 
@@ -347,25 +377,6 @@ Hi **{user_name}**! I've analyzed your skin image and here's what I found:
         report += "**Key Visual Indicators:**\n\n"
         for feature in key_features:
             report += f"- {feature}\n"
-        report += "\n"
-
-    report += """---
-### 🧠 Why I Made This Diagnosis
-"""
-    import re as _re
-    if reasoning:
-        # Strip any internal model references — show only clinical reasoning
-        clean_reasoning = _re.sub(r'Edge AI \([^)]+\)\s*(classified as [^.]+\.?|—[^.]+\.?)\s*', '', reasoning).strip()
-        clean_reasoning = _re.sub(r'ServVia Edge AI\s*(classified as [^.]+\.?|—[^.]+\.?)\s*', '', clean_reasoning).strip()
-        report += f"{clean_reasoning}\n\n"
-    else:
-        report += f"Based on visual analysis, I identified this as **{disease}** because:\n\n"
-        if visual.get('border_type'):
-            report += f"- **Border Pattern:** {visual.get('border_type')} — characteristic of {disease}\n"
-        if visual.get('scale_type'):
-            report += f"- **Scale Type:** {visual.get('scale_type')} — consistent with diagnosis\n"
-        if visual.get('texture'):
-            report += f"- **Texture:** {visual.get('texture')} — typical presentation\n"
         report += "\n"
 
     if distinguishing:
@@ -377,37 +388,36 @@ Hi **{user_name}**! I've analyzed your skin image and here's what I found:
             report += f"- {d} (ruled out based on visual features)\n"
         report += "\n"
 
-    report += """---
-### 💊 Evidence-Based Treatment Recommendations
+    report += "---\n### Evidence-Based Treatment Recommendations\n\n"
 
-| Score | Meaning |
-|-------|---------|
-| 🟢 **8-10** | Clinical trial evidence (RCTs, meta-analyses) |
-| 🟡 **5-7** | Mechanistic studies with documented pathways |
-| 🔴 **1-4** | Traditional use or preliminary research |
-
-"""
     if trust_validation and trust_validation.get('remedies'):
-        report += f"I've checked our **Neuro-Symbolic Trust Engine** database and found **{len(trust_validation['remedies'])} scientifically validated remedies** for {disease}:\n\n"
+        report += f"Found **{len(trust_validation['remedies'])} scientifically validated remedies** for {disease}:\n\n"
 
         for i, remedy in enumerate(trust_validation['remedies'], 1):
-            emoji = "🟢" if remedy['score'] >= 8 else "🟡" if remedy['score'] >= 6 else "🔴"
+            dot = "🟢" if remedy['score'] >= 8 else "🟡" if remedy['score'] >= 6 else "🔴"
             confidence_text = "Strong Evidence" if remedy['score'] >= 8 else "Good Evidence" if remedy['score'] >= 6 else "Traditional Use"
 
-            report += f"#### {i}. {remedy['name'].title()} {emoji}\n"
+            report += f"#### {i}. {remedy['name'].title()} {dot}\n"
             report += f"**Scientific Confidence Score:** {remedy['score']}/10 ({confidence_text}) | **Evidence Level:** {remedy['tier_label']}\n\n"
 
             if remedy['mechanism']:
                 report += f"**How it works:** {remedy['mechanism']}\n\n"
-            if remedy['dose']:
-                report += f"**Recommended usage:** {remedy['dose']}\n\n"
+
+            dose = remedy['dose'] or _fallback_dose(remedy['name'])
+            if dose:
+                report += f"**Recommended usage:** {dose}\n\n"
             if remedy.get('has_interaction'):
-                report += f"⚠️ *Use with caution - see safety notes below*\n\n"
+                report += "**Use with caution** — see safety notes below\n\n"
 
             report += "---\n\n"
 
+        report += "| Score | Meaning |\n|-------|----------|\n"
+        report += "| 🟢 **8-10** | Clinical trial evidence (RCTs, meta-analyses) |\n"
+        report += "| 🟡 **5-7** | Mechanistic studies with documented pathways |\n"
+        report += "| 🔴 **1-4** | Traditional use or preliminary research |\n\n"
+
         if trust_validation.get('warnings'):
-            report += "### ⚠️ Personalized Safety Alerts\n\n"
+            report += "### Personalized Safety Alerts\n\n"
             report += "Based on your health profile, please note:\n\n"
             for warning in trust_validation['warnings']:
                 report += f"{warning}\n\n"
@@ -415,72 +425,36 @@ Hi **{user_name}**! I've analyzed your skin image and here's what I found:
         report += f"Evidence-informed home remedies for **{disease}**:\n\n"
         for i, rec in enumerate(result.get('recommendations', []), 1):
             report += f"{i}. {rec}\n\n"
-        report += "\n---\n### 🔬 Trust Engine Validation\n"
-        report += "> 💡 *Trust Engine validation is being initialized. Remedies above are curated from clinical literature. For full drug-interaction checking and personalized scoring, ensure the Trust Engine module is active.*\n\n"
 
-    allergies = user_profile.get('allergies', [])
-    medications = user_profile.get('current_medications', [])
-    conditions = user_profile.get('medical_conditions', [])
-
-    if allergies or medications or conditions:
-        report += """---
-### 👤 Your Health Profile Check
-"""
-        if allergies:
-            report += f"✅ **Allergies checked:** {', '.join(allergies)} - Remedies filtered accordingly\n\n"
-        if medications:
-            report += f"✅ **Medications checked:** {', '.join(medications)} - Interactions verified\n\n"
-        if conditions:
-            report += f"✅ **Conditions checked:** {', '.join(conditions)} - Contraindications reviewed\n\n"
-
-    report += """---
-### 🎯 What You Should Do Next
-"""
+    report += "---\n### What You Should Do Next\n\n"
     severity_lower = severity.lower()
     if 'severe' in severity_lower:
-        report += f"**Severity Level: {severity}** 🔴\n{urgency_note}\n"
-        report += """**Recommended Actions:**
-1. 🏥 **See a dermatologist within 24-48 hours**
-2. 📸 Take photos daily to track changes
-3. 🚫 Avoid touching or picking at the affected area
-4. 📝 Note any new triggers
-5. 💊 The remedies above may help while awaiting professional care
-"""
+        report += f"**Severity Level: {severity}** 🔴\n\n{urgency_note}\n\n"
+        report += "**Recommended Actions:**\n\n"
+        report += "1. See a dermatologist within 24-48 hours\n"
+        report += "2. Take photos daily to track changes\n"
+        report += "3. Avoid touching or picking at the affected area\n"
+        report += "4. Note any new triggers\n"
+        report += "5. The remedies above may help while awaiting professional care\n\n"
     elif 'moderate' in severity_lower:
-        report += f"**Severity Level: {severity}** 🟡\n{urgency_note}\n"
-        report += """**Recommended Actions:**
-1. 🌿 Try the top Trust Engine remedies for **5-7 days**
-2. 📸 Take a comparison photo in one week
-3. 🧴 Keep area clean and moisturized
-4. 🚫 Avoid known triggers
-5. 👨‍⚕️ Consult a dermatologist if no improvement
-"""
+        report += f"**Severity Level: {severity}** 🟡\n\n{urgency_note}\n\n"
+        report += "**Recommended Actions:**\n\n"
+        report += "1. Try the top remedies for **5-7 days**\n"
+        report += "2. Take a comparison photo in one week\n"
+        report += "3. Keep area clean and moisturized\n"
+        report += "4. Avoid known triggers\n"
+        report += "5. Consult a dermatologist if no improvement\n\n"
     else:
-        report += f"**Severity Level: {severity}** 🟢\n{urgency_note}\n"
-        report += """**Recommended Actions:**
-1. 🌿 Start with the highest-rated remedy above
-2. ⏰ Use consistently for **1-2 weeks**
-3. 💧 Stay hydrated and maintain good hygiene
-4. 📊 Monitor progress
-5. ✅ Most cases resolve with proper care
-"""
+        report += f"**Severity Level: {severity}** 🟢\n\n{urgency_note}\n\n"
+        report += "**Recommended Actions:**\n\n"
+        report += "1. Start with the highest-rated remedy above\n"
+        report += "2. Use consistently for **1-2 weeks**\n"
+        report += "3. Stay hydrated and maintain good hygiene\n"
+        report += "4. Monitor progress\n"
+        report += "5. Most cases resolve with proper care\n\n"
 
-    report += f"""---
-### 📚 Understanding {disease}
-"""
+    report += f"---\n### Understanding {disease}\n\n"
     report += get_condition_education(disease)
-
-    if trust_validation:
-        report += """
----
-### 🔬 About Trust Engine Validation
-The remedies above have been validated through our **Neuro-Symbolic Trust Engine**, which combines:
-- **Neural AI Analysis** - Pattern recognition from medical literature
-- **Symbolic Knowledge Base** - Verified herb-condition evidence with PubMed citations
-- **Safety Verification** - Drug interaction and contraindication checking
-- **Personalization** - Filtered based on your health profile
-"""
-
 
     return report
 
@@ -631,13 +605,16 @@ def _sse(event: str, data) -> str:
 
 def _prepare_skin_image(image_file):
     """Save uploaded image to temp file, return (temp_path, image_data) or raise ValueError."""
+    image_file.seek(0)
     image_data = image_file.read()
     image = Image.open(io.BytesIO(image_data))
     if image.mode != 'RGB':
         image = image.convert('RGB')
-    with tempfile.NamedTemporaryFile(delete=False, suffix='.jpg') as tmp:
-        image.save(tmp.name)
-        return tmp.name, image_data
+    tmp = tempfile.NamedTemporaryFile(delete=False, suffix='.jpg')
+    tmp_path = tmp.name
+    tmp.close()  # Must close before writing on Windows (file locking)
+    image.save(tmp_path)
+    return tmp_path, image_data
 
 
 @csrf_exempt
@@ -675,6 +652,7 @@ def stream_skin_analysis_view(request):
 
     def _pipeline_worker():
         """Run image validation → Gemini analysis → Trust Engine in background thread."""
+        _stream_start = _time.time()
         temp_path = None
         try:
             # ── Stage 1: Process image ──
@@ -768,6 +746,8 @@ def stream_skin_analysis_view(request):
             )
 
             # ── Stream formatted summary word-by-word ──
+            _elapsed = _time.time() - _stream_start
+            logger.info(f"ServVia Skin Analysis responded in {_elapsed:.2f}s")
             event_q.put(("stage", {
                 "id": "streaming",
                 "label": "",
@@ -784,8 +764,10 @@ def stream_skin_analysis_view(request):
             }))
 
         except Exception as e:
-            logger.error(f"Skin stream pipeline error: {e}", exc_info=True)
-            event_q.put(("error", {"message": f"Pipeline error: {type(e).__name__}"}))
+            import traceback
+            tb = traceback.format_exc()
+            logger.error(f"Skin stream pipeline error: {e}\n{tb}")
+            event_q.put(("error", {"message": f"{type(e).__name__}: {e}"}))
         finally:
             if temp_path and os.path.exists(temp_path):
                 try:
@@ -818,32 +800,14 @@ def stream_skin_analysis_view(request):
                 yield _sse("error", data)
                 break
             elif event_type == "stream_summary":
-                words = data.split(" ")
-                word_count = len(words)
-                if word_count < 200:
-                    base_delay = 0.018
-                elif word_count < 400:
-                    base_delay = 0.010
-                else:
-                    base_delay = 0.005
-
-                batch = []
-                for i, word in enumerate(words):
-                    batch.append(word)
-                    is_last = (i == word_count - 1)
-                    at_punctuation = word.rstrip().endswith((".", "!", "?", ":", "---"))
-                    at_batch_limit = len(batch) >= 3
-
-                    if is_last or at_punctuation or at_batch_limit:
-                        text = " ".join(batch)
-                        if not is_last:
-                            text += " "
-                        yield _sse("token", {"text": text})
-                        batch = []
-                        if at_punctuation:
-                            _time.sleep(base_delay * 3)
-                        else:
-                            _time.sleep(base_delay)
+                import re as _re
+                # Split preserving whitespace so newlines are kept intact
+                tokens = _re.split(r'(\s+)', data)
+                for tok in tokens:
+                    if tok:
+                        yield _sse("token", {"text": tok})
+                        if not tok.isspace():
+                            _time.sleep(0.009)
             elif event_type == "done":
                 yield _sse("done", data)
 

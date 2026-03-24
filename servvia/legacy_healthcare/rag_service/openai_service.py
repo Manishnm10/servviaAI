@@ -17,10 +17,25 @@ from qdrant_client.http.models import Filter, FieldCondition, MatchValue
 from legacy_healthcare.common.constants import Constants
 
 
+# Module-level client — reuses connection pool across requests
+_azure_client: AsyncAzureOpenAI = None
+
+def _get_azure_client() -> AsyncAzureOpenAI:
+    global _azure_client
+    if _azure_client is None:
+        _azure_client = AsyncAzureOpenAI(
+            api_key=Config.AZURE_OPENAI_API_KEY,
+            azure_endpoint=Config.AZURE_OPENAI_ENDPOINT,
+            api_version=Config.AZURE_OPENAI_API_VERSION,
+        )
+    return _azure_client
+
+
 async def make_openai_request(
     prompt_message,
     model=Config.GPT_3_MODEL,
     temperature=0,
+    max_tokens: int = None,
     initial_delay: float = 1,
     exponential_base: float = 2,
     jitter: bool = True,
@@ -29,11 +44,7 @@ async def make_openai_request(
     """
     Make OpenAI API request with the prompt message and other relevant OpenAI configuration.
     """
-    async_client = AsyncAzureOpenAI(
-        api_key=Config.AZURE_OPENAI_API_KEY,
-        azure_endpoint=Config.AZURE_OPENAI_ENDPOINT,
-        api_version=Config.AZURE_OPENAI_API_VERSION,
-    )
+    async_client = _get_azure_client()
 
     exception_string = ""
     retries = 0
@@ -52,11 +63,12 @@ async def make_openai_request(
                 "messages": [{"role": "user", "content": prompt_message}],
             }
             if is_reasoning:
-                # Reasoning models use reasoning_effort instead of temperature
                 effort = getattr(Config, "REASONING_EFFORT", {}).get(model, "medium")
                 create_kwargs["reasoning_effort"] = effort
             else:
                 create_kwargs["temperature"] = temperature
+            if max_tokens:
+                create_kwargs["max_tokens"] = max_tokens
             response = await async_client.chat.completions.create(**create_kwargs)
             return response, exception_string, retries
         except (RateLimitError, APITimeoutError, InternalServerError) as e:

@@ -178,7 +178,7 @@ def analyze_lab_report_view(request):
         lab_report = LabReport.objects.create(
             email_id=email,
             report_file=report_files[0],
-            extracted_text=raw_text,
+            extracted_text=anonymized_text,
             summary=formatted_summary,
             analysis=analysis_result,
             abnormal_values=analysis_result.get('biomarkers', [])
@@ -301,7 +301,7 @@ def stream_lab_report_view(request):
             lab_report = LabReport.objects.create(
                 email_id=email,
                 report_file=report_files[0],
-                extracted_text=raw_text,
+                extracted_text=anonymized_text,
                 summary=formatted_summary,
                 analysis=result,
                 abnormal_values=result.get("biomarkers", []),
@@ -544,11 +544,11 @@ def identify_lab_report_view(request):
         # Step 3: Redact PHI for storage
         anonymized_text = redactor.anonymize_text(all_raw_text)
 
-        # Step 4: Create a pending (unconfirmed) LabReport
+        # Step 4: Create a pending (unconfirmed) LabReport — store anonymized text only
         lab_report = LabReport.objects.create(
             email_id=email,
             report_file=report_files[0],
-            extracted_text=all_raw_text,
+            extracted_text=anonymized_text,
             identity_meta=fingerprint.to_dict(),
             profile_confirmed=False,
         )
@@ -779,11 +779,9 @@ def confirm_and_analyze_view(request):
         })
 
     except Exception as e:
-        import traceback
-        error_msg = traceback.format_exc()
         logger.error(f"[Co-Pilot] Confirm+Analyze error: {e}", exc_info=True)
         return Response(
-            {'error': 'An unexpected error occurred. Please try again.', 'debug_trace': error_msg},
+            {'error': 'An unexpected error occurred. Please try again.'},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
 

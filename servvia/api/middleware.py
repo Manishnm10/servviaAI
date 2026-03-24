@@ -17,15 +17,10 @@ _TRACE_LOG = os.path.join(
 
 
 def _mw_write(msg: str):
-    """Write a message to stdout, stderr, AND the pipeline log file."""
+    """Write a message to stdout AND the pipeline log file."""
     try:
         sys.__stdout__.write(msg + "\n")
         sys.__stdout__.flush()
-    except Exception:
-        pass
-    try:
-        sys.__stderr__.write(msg + "\n")
-        sys.__stderr__.flush()
     except Exception:
         pass
     try:
@@ -41,6 +36,18 @@ class PipelineLoggingMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response
 
+    # Paths → friendly labels for the timer line
+    _ROUTE_LABELS = {
+        "/api/chat/get_answer_for_text_query/": "Prompt",
+        "/api/chat/stream/": "Prompt",
+        "/api/skin/analyze/": "Skin Analysis",
+        "/api/skin/analyze/stream/": "Skin Analysis",
+        "/api/labs/analyze/": "Lab Report",
+        "/api/lab-report/identify/": "Lab Report",
+        "/api/lab-report/confirm/": "Lab Report",
+        "/api/lab-report/analyze/stream/": "Lab Report",
+    }
+
     def __call__(self, request):
         start = time.time()
         path = request.path
@@ -54,6 +61,11 @@ class PipelineLoggingMiddleware:
         elapsed = time.time() - start
         status_code = response.status_code
         ts = datetime.now().strftime("%H:%M:%S")
-        _mw_write(f"[{ts}] <<< {status_code} {path} ({elapsed:.1f}s)")
+
+        label = self._ROUTE_LABELS.get(path)
+        if label:
+            _mw_write(f"[{ts}] ServVia {label} responded in {elapsed:.2f}s (HTTP {status_code})")
+        else:
+            _mw_write(f"[{ts}] <<< {status_code} {path} ({elapsed:.1f}s)")
 
         return response

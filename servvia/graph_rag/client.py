@@ -22,6 +22,21 @@ from graph_rag.schema import (
 logger = logging.getLogger(__name__)
 
 
+def _neo4j_env(key: str) -> str:
+    """Read Neo4j credential from os.environ first, then django_core ENV_CONFIG."""
+    val = os.environ.get(key)
+    if val:
+        return val
+    try:
+        from django_core.config import ENV_CONFIG
+        val = ENV_CONFIG.get(key)
+    except Exception:
+        pass
+    if not val:
+        raise KeyError(f"{key} not set in environment or .env file")
+    return val
+
+
 class KnowledgeGraphClient:
     """Neo4j AuraDB client for outcome-adaptive remedy retrieval."""
 
@@ -31,9 +46,9 @@ class KnowledgeGraphClient:
         user: Optional[str] = None,
         password: Optional[str] = None,
     ):
-        self._uri = uri or os.environ["NEO4J_URI"]
-        self._user = user or os.environ["NEO4J_USER"]
-        self._password = password or os.environ["NEO4J_PASSWORD"]
+        self._uri = uri or _neo4j_env("NEO4J_URI")
+        self._user = user or _neo4j_env("NEO4J_USERNAME")
+        self._password = password or _neo4j_env("NEO4J_PASSWORD")
         self._driver = GraphDatabase.driver(
             self._uri, auth=(self._user, self._password)
         )
@@ -55,6 +70,7 @@ class KnowledgeGraphClient:
         query = (
             f"MATCH (s:{SYMPTOM})<-[:{TREATS}]-(r:{REMEDY}) "
             f"WHERE s.name IN $symptoms "
+            f"WITH DISTINCT r "
             f"OPTIONAL MATCH (r)-[e:{ENHANCED_BY}]->(b:{BIOLOGICAL_STATE}) "
             f"WHERE b.name = $bio_state "
             "RETURN r.name AS remedy, "
@@ -97,3 +113,16 @@ class KnowledgeGraphClient:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
+
+
+# ── Singleton instance (reuses TCP/TLS connection across requests) ────────
+
+_singleton_client: "KnowledgeGraphClient | None" = None
+
+
+def get_graph_client() -> "KnowledgeGraphClient":
+    """Return a module-level singleton client, creating it on first call."""
+    global _singleton_client
+    if _singleton_client is None:
+        _singleton_client = KnowledgeGraphClient()
+    return _singleton_client

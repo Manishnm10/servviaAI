@@ -729,7 +729,7 @@ async def execute_rag_pipeline(
             context_changes = conversation_manager.update_context(email_id, original_query)
             
             # TEMPORAL: Update medication timeline if temporal keywords detected
-            conversation_manager.update_medication_timeline(email_id, original_query)
+            await conversation_manager.update_medication_timeline(email_id, original_query)
             
             # Add user message to history buffer
             conversation_manager.add_message(email_id, 'user', original_query)

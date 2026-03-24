@@ -24,8 +24,6 @@ import re
 from typing import Dict, List, Optional
 
 from presidio_analyzer import AnalyzerEngine, RecognizerResult
-from presidio_anonymizer import AnonymizerEngine
-from presidio_anonymizer.entities import OperatorConfig
 
 logger = logging.getLogger("ServVia.Edge.PHI")
 
@@ -62,10 +60,6 @@ class PHIRedactor:
         """
         self._language = language
         self._analyzer = AnalyzerEngine()
-        self._anonymizer = AnonymizerEngine()
-
-        # Counters for sequential placeholder naming per entity type
-        self._entity_counters: Dict[str, int] = {}
 
         logger.info("PHIRedactor initialized with Presidio + spaCy NLP engine")
 
@@ -147,42 +141,29 @@ class PHIRedactor:
             f"{[r.entity_type for r in results]}"
         )
 
-        # Step 3: Build operator config with sequential placeholders
-        operators = self._build_operators(results)
-
-        # Step 4: Anonymize
-        anonymized = self._anonymizer.anonymize(
-            text=raw_text,
-            analyzer_results=results,
-            operators=operators,
-        )
-
-        logger.info(
-            f"Anonymized {len(results)} PHI entities "
-            f"({len(raw_text)} -> {len(anonymized.text)} chars)"
-        )
-        return anonymized.text
-
-    def _build_operators(
-        self, results: List[RecognizerResult]
-    ) -> Dict[str, OperatorConfig]:
-        """Build Presidio operator configs for placeholder replacement."""
-        # Map entity types to short placeholder labels
+        # Step 3: Replace each entity with a unique numbered placeholder.
+        # Sort ascending by position first (to assign numbers left-to-right),
+        # then replace from right-to-left so earlier offsets stay valid.
         label_map = {
             "PERSON": "PERSON",
             "PHONE_NUMBER": "PHONE",
             "EMAIL_ADDRESS": "EMAIL",
         }
+        results.sort(key=lambda r: r.start)
+        entity_counters: Dict[str, int] = {}
+        replacements = []
+        for r in results:
+            label = label_map.get(r.entity_type, r.entity_type)
+            count = entity_counters.get(r.entity_type, 0) + 1
+            entity_counters[r.entity_type] = count
+            replacements.append((r.start, r.end, f"[{label}_{count}]"))
 
-        operators = {}
-        for entity_type in set(r.entity_type for r in results):
-            label = label_map.get(entity_type, entity_type)
-            count = self._entity_counters.get(entity_type, 0) + 1
-            self._entity_counters[entity_type] = count
-            placeholder = f"[{label}_{count}]"
+        text = raw_text
+        for start, end, placeholder in reversed(replacements):
+            text = text[:start] + placeholder + text[end:]
 
-            operators[entity_type] = OperatorConfig(
-                "replace", {"new_value": placeholder}
-            )
-
-        return operators
+        logger.info(
+            f"Anonymized {len(results)} PHI entities "
+            f"({len(raw_text)} -> {len(text)} chars)"
+        )
+        return text

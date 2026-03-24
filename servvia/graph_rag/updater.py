@@ -19,6 +19,7 @@ from graph_rag.schema import (
     ENHANCED_BY,
     REMEDY,
 )
+from graph_rag.client import _neo4j_env
 
 logger = logging.getLogger(__name__)
 
@@ -32,9 +33,9 @@ class AdaptiveFeedbackEngine:
         user: Optional[str] = None,
         password: Optional[str] = None,
     ):
-        self._uri = uri or os.environ["NEO4J_URI"]
-        self._user = user or os.environ["NEO4J_USER"]
-        self._password = password or os.environ["NEO4J_PASSWORD"]
+        self._uri = uri or _neo4j_env("NEO4J_URI")
+        self._user = user or _neo4j_env("NEO4J_USERNAME")
+        self._password = password or _neo4j_env("NEO4J_PASSWORD")
         self._driver = GraphDatabase.driver(
             self._uri, auth=(self._user, self._password)
         )
@@ -56,11 +57,17 @@ class AdaptiveFeedbackEngine:
         if outcome_score not in (1, -1):
             raise ValueError("outcome_score must be +1 or -1")
 
+        # MERGE creates the edge if it doesn't exist, so any remedy can
+        # accumulate personalised feedback for any bio-state over time.
         query = (
-            f"MATCH (r:{REMEDY} {{name: $remedy}})"
-            f"-[e:{ENHANCED_BY}]->"
-            f"(b:{BIOLOGICAL_STATE} {{name: $bio_state}}) "
-            f"SET e.weight = CASE "
+            f"MATCH (r:{REMEDY} {{name: $remedy}}) "
+            f"MATCH (b:{BIOLOGICAL_STATE} {{name: $bio_state}}) "
+            f"MERGE (r)-[e:{ENHANCED_BY}]->(b) "
+            f"ON CREATE SET e.weight = CASE "
+            f"  WHEN $default_weight + $delta > {EDGE_WEIGHT_MAX} THEN {EDGE_WEIGHT_MAX} "
+            f"  WHEN $default_weight + $delta < {EDGE_WEIGHT_MIN} THEN {EDGE_WEIGHT_MIN} "
+            f"  ELSE $default_weight + $delta END "
+            f"ON MATCH  SET e.weight = CASE "
             f"  WHEN e.weight + $delta > {EDGE_WEIGHT_MAX} THEN {EDGE_WEIGHT_MAX} "
             f"  WHEN e.weight + $delta < {EDGE_WEIGHT_MIN} THEN {EDGE_WEIGHT_MIN} "
             f"  ELSE e.weight + $delta "
@@ -68,18 +75,21 @@ class AdaptiveFeedbackEngine:
             "RETURN e.weight AS new_weight"
         )
 
+        from graph_rag.schema import EDGE_WEIGHT_DEFAULT
+
         with self._driver.session() as session:
             result = session.run(
                 query,
                 remedy=remedy,
                 bio_state=bio_state,
                 delta=float(outcome_score),
+                default_weight=EDGE_WEIGHT_DEFAULT,
             )
             record = result.single()
 
         if record is None:
             logger.warning(
-                "No ENHANCED_BY edge found for remedy=%s, bio_state=%s",
+                "Remedy=%s or BiologicalState=%s node not found in graph",
                 remedy,
                 bio_state,
             )

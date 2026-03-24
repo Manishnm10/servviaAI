@@ -74,14 +74,14 @@ except ImportError:
 
 # Graph RAG for outcome-adaptive remedy ranking
 try:
-    from graph_rag.client import KnowledgeGraphClient
+    from graph_rag.client import get_graph_client
     GRAPH_RAG_AVAILABLE = True
 except ImportError:
     GRAPH_RAG_AVAILABLE = False
 
-# Multi-Agent LangGraph verification
+# Multi-Agent verification (serious queries: Diagnostician → Proposer → Critic)
 try:
-    from agents.graph import run_verification_pipeline, run_diagnostician_standalone, run_proposer_only
+    from agents.graph import run_verification_pipeline, run_diagnostician_standalone
     from agents.prompts import FALLBACK_RESPONSE as _AGENT_FALLBACK
     MULTI_AGENT_AVAILABLE = True
 except ImportError as e:
@@ -109,7 +109,7 @@ _TRACE_LOG = os.path.join(
 
 
 def _trace(msg: str):
-    """Write timestamped trace to file AND stdout/stderr."""
+    """Write timestamped trace to file AND stdout."""
     ts = datetime.now().strftime("%H:%M:%S")
     line = f"[{ts}] {msg}"
     # Safe ASCII version for Windows console (cp1252 can't handle Unicode)
@@ -124,11 +124,6 @@ def _trace(msg: str):
     try:
         sys.__stdout__.write(safe_line + "\n")
         sys.__stdout__.flush()
-    except Exception:
-        pass
-    try:
-        sys.__stderr__.write(safe_line + "\n")
-        sys.__stderr__.flush()
     except Exception:
         pass
 
@@ -317,48 +312,58 @@ async def _run_pipeline(
     query_lower = query_in_english.lower()
     needs_diag = _needs_diagnosis(query_lower)
 
-    # ── Step 1: RAG + Diagnostician ──────────────────────────────────────
-    diag_result = {"diagnosis_output": "", "symptom_list": [], "primary_condition": ""}
+    # ── Step 1: RAG + Graph RAG in parallel ──────────────────────────────
     rag_context = ""
 
-    if needs_diag and MULTI_AGENT_AVAILABLE:
-        _trace("  [C] SERIOUS path — RAG + Diagnostician in PARALLEL")
+    async def _graph_rag() -> str:
+        """Query Neo4j for outcome-ranked remedies. Returns context string."""
+        if not GRAPH_RAG_AVAILABLE:
+            return ""
+        try:
+            from legacy_healthcare.rag_service.execute_rag import ContextManager
+            entities = ContextManager.extract_entities(query_in_english)
+            symptoms = entities.get("conditions", [])
+            if not symptoms:
+                return ""
 
-        async def _rag():
-            return await execute_rag_pipeline(
-                query_in_english, input_language_detected, email_id,
-                user_name=user_name, message_id=message_id,
-                chat_history=chat_history, user_profile=user_profile_data,
+            _PHASE_MAP = {
+                "early_morning": "morning",
+                "morning_activation": "morning",
+                "late_morning": "morning",
+                "afternoon_peak": "afternoon",
+                "afternoon_slump": "afternoon",
+                "evening_active": "evening",
+                "wind_down": "evening",
+                "deep_sleep": "night",
+            }
+            if bio_context_str:
+                raw_phase = (
+                    bio_context_str.split(",")[0]
+                    .replace("Circadian Phase:", "")
+                    .strip()
+                    .lower()
+                )
+                bio_phase = _PHASE_MAP.get(raw_phase, raw_phase) or "default"
+            else:
+                bio_phase = "default"
+
+            graph_client = get_graph_client()
+            loop = asyncio.get_event_loop()
+            ranked = await loop.run_in_executor(
+                None, graph_client.retrieve_ranked_remedies, symptoms, bio_phase
             )
+            if ranked:
+                graph_lines = [
+                    f"- {r['remedy']} (score: {r['base_score']:.2f}, "
+                    f"bio-enhancement: ×{r['enhancement']:.2f}, rank: {r['rank']:.2f})"
+                    for r in ranked[:5]
+                ]
+                return "\n\n=== OUTCOME-RANKED REMEDIES (Graph RAG) ===\n" + "\n".join(graph_lines)
+            return ""
+        except Exception:
+            return ""
 
-        async def _diag():
-            return await run_diagnostician_standalone(
-                user_symptoms=query_in_english,
-                user_allergies=_profile.get("allergies") or [],
-                user_medications=_profile.get("current_medications") or [],
-                user_conditions=_profile.get("medical_conditions") or [],
-            )
-
-        results = await asyncio.gather(_rag(), _diag(), return_exceptions=True)
-        rag_result_raw, diag_result_raw = results
-
-        # Parse RAG result
-        if isinstance(rag_result_raw, Exception):
-            _trace(f"  [C] RAG FAILED: {rag_result_raw}")
-        elif isinstance(rag_result_raw, tuple) and len(rag_result_raw) == 2:
-            response_map, _ = rag_result_raw
-            rag_context = response_map.get("rag_context") or response_map.get("generated_final_response", "")
-        else:
-            _trace(f"  [C] RAG unexpected return type: {type(rag_result_raw)}")
-
-        # Parse Diagnostician result
-        if isinstance(diag_result_raw, Exception):
-            _trace(f"  [C] Diagnostician FAILED: {diag_result_raw}")
-        elif isinstance(diag_result_raw, dict):
-            diag_result = diag_result_raw
-    else:
-        # MINOR path — RAG only, skip Diagnostician
-        _trace("  [C] MINOR path — RAG only (skipping Diagnostician)")
+    async def _rag():
         try:
             response_pair = await execute_rag_pipeline(
                 query_in_english, input_language_detected, email_id,
@@ -367,38 +372,43 @@ async def _run_pipeline(
             )
             if isinstance(response_pair, tuple) and len(response_pair) == 2:
                 response_map, _ = response_pair
-                rag_context = response_map.get("rag_context") or response_map.get("generated_final_response", "")
+                return response_map.get("rag_context") or response_map.get("generated_final_response", "")
         except Exception as e:
             _trace(f"  [C] RAG FAILED: {e}")
+        return ""
 
-    # ── Step 1b: Graph RAG — outcome-adaptive remedy ranking ────────────
-    if GRAPH_RAG_AVAILABLE and bio_context_str:
+    diag_result = {"diagnosis_output": "", "primary_condition": ""}
+
+    # Step 1a: RAG + Graph RAG in parallel (both paths need this)
+    _trace(f"  [C] RAG + Graph RAG in parallel ({'SERIOUS' if needs_diag else 'MINOR'})")
+    results = await asyncio.gather(_rag(), _graph_rag(), return_exceptions=True)
+    rag_result_raw, graph_rag_ctx = results
+
+    if isinstance(rag_result_raw, str):
+        rag_context = rag_result_raw
+    elif isinstance(rag_result_raw, Exception):
+        _trace(f"  [C] RAG FAILED: {rag_result_raw}")
+
+    if isinstance(graph_rag_ctx, str) and graph_rag_ctx:
+        rag_context += graph_rag_ctx
+
+    # Step 1b: Diagnostician (serious only, uses RAG context for accurate diagnosis)
+    if needs_diag and MULTI_AGENT_AVAILABLE:
+        _trace("  [C] Diagnostician (with RAG context)...")
         try:
-            from legacy_healthcare.rag_service.execute_rag import ContextManager
-            entities = ContextManager.extract_entities(query_in_english)
-            symptoms = entities.get("conditions", [])
-            if symptoms:
-                # Extract circadian phase from bio_context_str for graph lookup
-                bio_phase = bio_context_str.split(",")[0].replace("Circadian Phase:", "").strip() if bio_context_str else "default"
-                graph_client = KnowledgeGraphClient()
-                try:
-                    ranked = graph_client.retrieve_ranked_remedies(symptoms, bio_phase)
-                    if ranked:
-                        graph_lines = [f"- {r['remedy']} (rank: {r['rank']:.1f})" for r in ranked[:5]]
-                        rag_context += "\n\n=== OUTCOME-RANKED REMEDIES (Graph RAG) ===\n"
-                        rag_context += "\n".join(graph_lines)
-                        _trace(f"  [C-1b] Graph RAG: {len(ranked)} remedies ranked")
-                finally:
-                    graph_client.close()
-        except KeyError:
-            _trace("  [C-1b] Graph RAG skipped (Neo4j not configured)")
+            diag_result_raw = await run_diagnostician_standalone(
+                user_symptoms=query_in_english,
+                user_allergies=_profile.get("allergies") or [],
+                user_medications=_profile.get("current_medications") or [],
+                user_conditions=_profile.get("medical_conditions") or [],
+                rag_context=rag_context[:2000],
+            )
+            if isinstance(diag_result_raw, dict):
+                diag_result = diag_result_raw
         except Exception as e:
-            _trace(f"  [C-1b] Graph RAG error: {e}")
+            _trace(f"  [C] Diagnostician FAILED: {e}")
 
-    _trace(
-        f"  [C] RAG={len(rag_context)} chars | "
-        f"Diag={diag_result.get('primary_condition') or 'skipped'}"
-    )
+    _trace(f"  [C] RAG={len(rag_context)} chars | Diag={diag_result.get('primary_condition') or 'skipped'}")
 
     # ── Step 1c: Pre-filter RAG context — strip allergen mentions ───────
     user_allergies_lower = [a.lower().strip() for a in (_profile.get("allergies") or []) if a]
@@ -412,78 +422,79 @@ async def _run_pipeline(
             rag_context = "\n".join(filtered_lines)
         _trace(f"  [C-1c] Pre-filtered RAG context for {len(user_allergies_lower)} allergens")
 
-    # ── Step 2: Multi-Agent (Proposer → Critic) ─────────────────────────
+    # ── Step 2: Generate response ───────────────────────────────────────
     llm_response = ""
     agent_pipeline_used = False
 
-    if MULTI_AGENT_AVAILABLE:
-        if not needs_diag:
-            # ── FAST PATH: Minor query — Proposer only, skip Critic ──
-            if progress_fn:
-                progress_fn('generating', 'Generating personalized remedies...', 'fa-leaf')
-            try:
-                _trace("  [C-2] FAST PATH — Proposer only (minor query)")
-                fast_response = await run_proposer_only(
-                    user_symptoms=query_in_english,
-                    rag_context=rag_context,
-                    bio_context=bio_context_str,
-                    user_name=user_name or "",
-                    user_allergies=_profile.get("allergies") or [],
-                    user_medications=_profile.get("current_medications") or [],
-                    user_conditions=_profile.get("medical_conditions") or [],
-                )
-                if fast_response and fast_response != _AGENT_FALLBACK:
-                    llm_response = fast_response
-                    agent_pipeline_used = True
-                    _trace("  [C-2] FAST PATH DONE")
-                else:
-                    llm_response = _AGENT_FALLBACK
-            except Exception as e:
-                _trace(f"  [C-2] FAST PATH ERROR: {e}")
-                logger.error(f"Proposer-only error: {e}", exc_info=True)
-                llm_response = _AGENT_FALLBACK
-        else:
-            # ── FULL PATH: Serious query — Proposer → Critic ──
-            if progress_fn:
-                progress_fn('generating', 'AI agents crafting your response...', 'fa-robot')
-            try:
-                _trace("  [C-2] Proposer -> Critic...")
-                verified_response = await run_verification_pipeline(
-                    user_symptoms=query_in_english,
-                    rag_context=rag_context,
-                    bio_context=bio_context_str,
-                    user_name=user_name or "",
-                    user_allergies=_profile.get("allergies") or [],
-                    user_medications=_profile.get("current_medications") or [],
-                    user_conditions=_profile.get("medical_conditions") or [],
-                    diagnosis_output=diag_result.get("diagnosis_output", ""),
-                    symptom_list=diag_result.get("symptom_list", []),
-                    primary_condition=diag_result.get("primary_condition", ""),
-                )
+    if not needs_diag:
+        # ── MINOR: Single LLM call — fast path ──
+        if progress_fn:
+            progress_fn('generating', 'Generating personalized remedies...', 'fa-leaf')
+        try:
+            from agents.prompts import PROPOSER_PROMPT
+            from legacy_healthcare.rag_service.openai_service import make_openai_request
+            from django_core.config import Config
 
-                if progress_fn:
-                    progress_fn('review', 'Medical safety peer review...', 'fa-user-md')
+            allergies = _profile.get("allergies") or []
+            medications = _profile.get("current_medications") or []
+            conditions = _profile.get("medical_conditions") or []
 
-                if verified_response and verified_response != _AGENT_FALLBACK:
-                    llm_response = verified_response
+            prompt = PROPOSER_PROMPT.format(
+                user_name=user_name or "",
+                user_allergies=", ".join(str(a) for a in allergies) if allergies else "None declared",
+                user_medications=", ".join(str(m) for m in medications) if medications else "None declared",
+                user_conditions=", ".join(str(c) for c in conditions) if conditions else "None declared",
+                user_symptoms=query_in_english,
+                rag_context=rag_context[:2000],
+                bio_context=bio_context_str,
+                critic_feedback="",
+                diagnosis_context="No diagnosis needed for minor ailments. Use PATH A.",
+            )
+
+            _trace("  [C-2] MINOR — single LLM call...")
+            response, exception, retries = await make_openai_request(
+                prompt, model=Config.MODEL_CHAT, temperature=0.3, max_retries=2, max_tokens=1500,
+            )
+            if response and response.choices:
+                content = response.choices[0].message.content
+                if content and content.strip():
+                    llm_response = content.strip()
                     agent_pipeline_used = True
-                    _trace("  [C-2] APPROVED")
-                elif verified_response == _AGENT_FALLBACK:
-                    _trace("  [C-2] FALLBACK triggered")
-                    llm_response = _AGENT_FALLBACK
-                else:
-                    _trace("  [C-2] Empty response — using FALLBACK")
-                    llm_response = _AGENT_FALLBACK
-            except Exception as e:
-                _trace(f"  [C-2] ERROR: {e}")
-                logger.error(f"Multi-Agent pipeline error: {e}", exc_info=True)
+
+            if not llm_response:
                 llm_response = _AGENT_FALLBACK
+        except Exception as e:
+            _trace(f"  [C-2] ERROR: {e}")
+            logger.error(f"LLM call error: {e}", exc_info=True)
+            llm_response = _AGENT_FALLBACK
+    elif MULTI_AGENT_AVAILABLE:
+        # ── SERIOUS: Proposer → Critic (safety-verified) ──
+        if progress_fn:
+            progress_fn('generating', 'AI diagnosing and verifying...', 'fa-robot')
+        try:
+            _trace(f"  [C-2] SERIOUS — Proposer -> Critic (diagnosis: {diag_result.get('primary_condition') or 'none'})...")
+            verified_response = await run_verification_pipeline(
+                user_symptoms=query_in_english,
+                rag_context=rag_context,
+                bio_context=bio_context_str,
+                user_name=user_name or "",
+                user_allergies=_profile.get("allergies") or [],
+                user_medications=_profile.get("current_medications") or [],
+                user_conditions=_profile.get("medical_conditions") or [],
+                diagnosis_output=diag_result.get("diagnosis_output", ""),
+                primary_condition=diag_result.get("primary_condition", ""),
+            )
+            if verified_response and verified_response != _AGENT_FALLBACK:
+                llm_response = verified_response
+                agent_pipeline_used = True
+            else:
+                llm_response = _AGENT_FALLBACK
+        except Exception as e:
+            _trace(f"  [C-2] ERROR: {e}")
+            logger.error(f"Multi-Agent pipeline error: {e}", exc_info=True)
+            llm_response = _AGENT_FALLBACK
     else:
-        _trace("  [C-2] Multi-Agent NOT AVAILABLE — using FALLBACK")
         llm_response = _AGENT_FALLBACK
-
-    # SAFETY GUARANTEE: llm_response is ALWAYS from multi-agent or FALLBACK
-    # Raw RAG chunks (rag_context) are NEVER exposed to the user.
 
     # ── Step 3: Trust Engine ─────────────────────────────────────────────
     if progress_fn:
@@ -902,6 +913,7 @@ def stream_chat_view(request):
 
     def _pipeline_worker():
         """Run the full pipeline in a background thread, posting events to queue."""
+        _stream_start = _time.time()
         try:
             _trace(f">>> STREAM | {original_query}")
 
@@ -1062,7 +1074,8 @@ def stream_chat_view(request):
             if agent_pipeline_used:
                 metadata["agent_verified"] = True
 
-            _trace(f"  [E] STREAM DONE | {pipeline_status} | {len(final_response)} chars")
+            _elapsed = _time.time() - _stream_start
+            _trace(f"  ServVia responded in {_elapsed:.2f}s")
             event_q.put(("result", {"response": final_response, **metadata}))
 
         except Exception as e:

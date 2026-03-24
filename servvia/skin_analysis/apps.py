@@ -1,3 +1,4 @@
+import os
 import threading
 from django.apps import AppConfig
 
@@ -7,6 +8,11 @@ class SkinAnalysisConfig(AppConfig):
     name = "skin_analysis"
 
     def ready(self):
+        # Django runserver spawns two processes (reloader + server).
+        # RUN_MAIN is set only in the actual server process — skip the reloader.
+        if os.environ.get("RUN_MAIN") != "true":
+            return
+
         # Pre-load the vision model into memory in the background so the
         # first patient request doesn't hit a cold-start delay.
         def _warmup():

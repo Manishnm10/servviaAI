@@ -56,10 +56,9 @@ class Config:
     # Backward-compat stubs — keeps tts.py and any legacy code from crashing
     OPEN_AI_KEY = None
     OPENAI_BASE_URL = None
-    # Three-model architecture:
-    #   MASTER (gpt-4.1)      — Diagnostician: frontier clinical reasoning, temp=0.2
-    #   BRAIN  (gpt-4.1-mini) — Critic/Safety: fast verification, temp=0
-    #   CHAT   (gpt-4.1-mini) — Proposer/Lab/TTS/OCR: general-purpose, temp=0.3
+    # Model architecture:
+    #   MASTER (gpt-4.1)      — Diagnostician only (lean 400-token diagnosis call)
+    #   CHAT   (gpt-4.1-mini) — Proposer, Critic, Lab, TTS, OCR (everything else)
     MODEL_MASTER = ENV_CONFIG.get("MODEL_MASTER", "gpt-4.1")
     MODEL_BRAIN = ENV_CONFIG.get("MODEL_BRAIN", "gpt-4.1-mini")
     MODEL_CHAT = ENV_CONFIG.get("MODEL_CHAT", "gpt-4.1-mini")
@@ -89,8 +88,6 @@ class Config:
     GPT_4_MODEL = MODEL_CHAT      # → gpt-4.1-mini
     GPT_5_MINI_MODEL = MODEL_MASTER  # → gpt-4.1
 
-    TEMPERATURE = ENV_CONFIG.get("TEMPERATURE", 0)
-    MAX_TOKENS = ENV_CONFIG.get("MAX_TOKENS", 500)
     CHAT_HISTORY_WINDOW = ENV_CONFIG.get("CHAT_HISTORY_WINDOW", 4)
 
     # Content Retrieval APIs

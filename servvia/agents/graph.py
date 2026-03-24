@@ -143,6 +143,7 @@ async def _call_llm(
     temperature: float = 0.3,
     model: str = None,
     agent_role: str = None,
+    max_tokens: int = None,
 ) -> str:
     """
     Call primary OpenAI endpoint. If the primary exhausts retries (typically
@@ -163,6 +164,8 @@ async def _call_llm(
     kwargs = {"temperature": temperature, "max_retries": 2}
     if model:
         kwargs["model"] = model
+    if max_tokens:
+        kwargs["max_tokens"] = max_tokens
 
     # ── 1. Try primary (OpenAI / GitHub Models) ──
     try:
@@ -253,6 +256,7 @@ async def diagnostician_node(state: AgentState) -> dict:
             temperature=0.2,
             model=Config.GPT_5_MINI_MODEL,
             agent_role="diagnostician",
+            max_tokens=1200,
         )
     except Exception as llm_err:
         logger.error(f"DIAGNOSTICIAN _call_llm exception: {llm_err}", exc_info=True)
@@ -326,24 +330,12 @@ async def proposer_node(state: AgentState) -> dict:
     # Format diagnosis context from Diagnostician output
     diagnosis_raw = state.get("diagnosis_output", "")
     if diagnosis_raw:
-        diagnosis_context = (
-            f"=== DIAGNOSTIC ASSESSMENT (GPT-5o-mini Clinical Analysis) ===\n"
-            f"{diagnosis_raw}\n"
-            f"=== END DIAGNOSTIC ASSESSMENT ===\n"
-            f"Use this assessment in your response. Include the reasoning."
-        )
+        diagnosis_context = diagnosis_raw
     else:
-        diagnosis_context = "No diagnostic assessment available. Do NOT state a diagnosis."
+        diagnosis_context = "No diagnosis available. Use your own clinical reasoning."
 
     revision = state.get("revision_count", 0)
     _trace(f"Proposer START | Revision #{revision}")
-    logger.info(
-        f"Proposer node | Revision #{revision} | "
-        f"Query: {state['user_symptoms'][:80]}"
-    )
-
-    # Get condition name from diagnostician -used in the h2 header
-    condition_name = state.get("primary_condition", "") or "Under Evaluation"
 
     try:
         prompt = PROPOSER_PROMPT.format(
@@ -356,7 +348,6 @@ async def proposer_node(state: AgentState) -> dict:
             bio_context=state.get("bio_context", "No chronobiology context."),
             critic_feedback=feedback_section,
             diagnosis_context=diagnosis_context,
-            condition_name=condition_name,
         )
     except Exception as fmt_err:
         logger.error(f"PROPOSER prompt format error: {fmt_err}", exc_info=True)
@@ -370,6 +361,7 @@ async def proposer_node(state: AgentState) -> dict:
             temperature=0.3,
             model=Config.MODEL_CHAT,
             agent_role="proposer",
+            max_tokens=1500,
         )
     except Exception as llm_err:
         logger.error(f"PROPOSER _call_llm exception: {llm_err}", exc_info=True)
@@ -406,13 +398,14 @@ async def critic_node(state: AgentState) -> dict:
     _trace("Critic START | Reviewing draft...")
     logger.info("[CRITIC]Critic node | Reviewing draft for clinical safety...")
 
-    # o3-mini is a reasoning model: temperature is omitted (400 error if sent),
-    # reasoning_effort="high" is injected by make_openai_request automatically.
+    # Critic uses gpt-4.1 at temp=0 — safety gatekeeper must be fully deterministic.
     # On Groq fallback, critic uses llama-3.3-70b-versatile with temp=0.0
     raw_output = await _call_llm(
         prompt,
-        model=Config.MODEL_BRAIN,
+        temperature=0.0,
+        model=Config.MODEL_CHAT,
         agent_role="critic",
+        max_tokens=256,
     )
 
     # Parse the Critic's JSON output
@@ -500,14 +493,13 @@ def route_after_critic(state: AgentState) -> str:
 
 def build_verification_graph() -> StateGraph:
     """
-    Build and compile the multi-agent verification graph.
+    Build and compile the Proposer → Critic verification graph.
 
     Flow:
-        diagnostician -> proposer -> critic ->
+        proposer -> critic ->
         [approved: END | revise: proposer | fallback: fallback_node -> END]
 
-    Revision loops go back to Proposer (NOT Diagnostician) -diagnosis
-    is cached in state and reused, saving an expensive GPT-5o-mini call.
+    The Proposer handles both diagnosis and response generation in a single call.
 
     Returns:
         Compiled LangGraph runnable.
@@ -515,16 +507,12 @@ def build_verification_graph() -> StateGraph:
     graph = StateGraph(AgentState)
 
     # Add nodes
-    graph.add_node("diagnostician", diagnostician_node)
     graph.add_node("proposer", proposer_node)
     graph.add_node("critic", critic_node)
     graph.add_node("fallback", fallback_node)
 
-    # Set entry point -Diagnostician runs first
-    graph.set_entry_point("diagnostician")
-
-    # Diagnostician -> Proposer (always)
-    graph.add_edge("diagnostician", "proposer")
+    # Set entry point — Proposer runs first (handles diagnosis internally)
+    graph.set_entry_point("proposer")
 
     # Proposer -> Critic (always)
     graph.add_edge("proposer", "critic")
@@ -606,10 +594,11 @@ async def run_diagnostician_standalone(
     user_allergies: list = None,
     user_medications: list = None,
     user_conditions: list = None,
+    rag_context: str = "",
 ) -> dict:
     """
-    Run GPT-5o-mini Diagnostician as a standalone call (for parallel execution).
-    Returns dict with diagnosis_output, symptom_list, primary_condition.
+    Lean Diagnostician — diagnosis only, no remedies.
+    Returns dict with diagnosis_output, primary_condition.
     """
     from django_core.config import Config
 
@@ -621,7 +610,7 @@ async def run_diagnostician_standalone(
     medications_str = ", ".join(str(m) for m in medications) if medications else "None declared"
     conditions_str = ", ".join(str(c) for c in conditions) if conditions else "None declared"
 
-    _trace(f"Diagnostician PARALLEL START | Model: {Config.GPT_5_MINI_MODEL}")
+    _trace(f"Diagnostician START | Model: {Config.GPT_5_MINI_MODEL}")
 
     try:
         prompt = DIAGNOSTICIAN_PROMPT.format(
@@ -629,8 +618,10 @@ async def run_diagnostician_standalone(
             user_medications=medications_str,
             user_conditions=conditions_str,
             user_symptoms=user_symptoms,
-            rag_context="Use your own medical knowledge for diagnosis.",
         )
+        # Append RAG context if available
+        if rag_context:
+            prompt += f"\n\nMEDICAL KNOWLEDGE BASE:\n{rag_context[:1500]}"
     except Exception as fmt_err:
         _trace(f"Diagnostician prompt format error: {fmt_err}")
         return {"diagnosis_output": "", "symptom_list": [], "primary_condition": ""}
@@ -641,6 +632,7 @@ async def run_diagnostician_standalone(
             temperature=0.2,
             model=Config.GPT_5_MINI_MODEL,
             agent_role="diagnostician",
+            max_tokens=400,
         )
     except Exception as llm_err:
         _trace(f"Diagnostician LLM error: {llm_err}")
@@ -659,7 +651,7 @@ async def run_diagnostician_standalone(
         diagnosis = json.loads(cleaned)
         symptom_list = diagnosis.get("symptom_list", [])
         primary_condition = diagnosis.get("primary_condition", "")
-        _trace(f"Diagnostician PARALLEL DONE | condition={primary_condition} | severity={diagnosis.get('severity')}")
+        _trace(f"Diagnostician DONE | {primary_condition} ({diagnosis.get('severity')})")
         return {
             "diagnosis_output": cleaned,
             "symptom_list": symptom_list,
@@ -678,9 +670,7 @@ async def run_verification_pipeline(
     user_allergies: list = None,
     user_medications: list = None,
     user_conditions: list = None,
-    # Pre-computed diagnosis (from parallel execution)
     diagnosis_output: str = "",
-    symptom_list: list = None,
     primary_condition: str = "",
 ) -> str:
     """
@@ -697,7 +687,7 @@ async def run_verification_pipeline(
         "rag_context": rag_context[:2000],
         "bio_context": bio_context,
         "diagnosis_output": diagnosis_output,
-        "symptom_list": symptom_list or [],
+        "symptom_list": [],
         "primary_condition": primary_condition,
         "user_name": user_name or "",
         "user_allergies": user_allergies or [],
@@ -705,13 +695,12 @@ async def run_verification_pipeline(
         "user_conditions": user_conditions or [],
     }
 
-    mode = "parallel (diagnosis pre-computed)" if diagnosis_output else "sequential"
-    _trace(f"Pipeline START | mode={mode}")
-    logger.info(f"[START]Starting Multi-Agent Pipeline | mode={mode} | Query: {user_symptoms[:80]}...")
+    _trace("Pipeline START | Proposer -> Critic")
+    logger.info(f"[START]Proposer->Critic | Diagnosis: {primary_condition or 'none'} | Query: {user_symptoms[:80]}...")
 
     final_state = await graph.ainvoke(initial_state)
 
-    pipeline_path = "diagnostician->proposer->critic" if not diagnosis_output else "proposer->critic"
+    pipeline_path = "proposer->critic"
     revision_count = final_state.get("revision_count", 0)
     if revision_count > 1:
         pipeline_path += f"->revision({revision_count - 1})"
