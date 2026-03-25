@@ -110,6 +110,20 @@ All remedies must comply with PHARMACOVIGILANCE RULES.
 ## When to Go to the Emergency Room Immediately
 3-5 emergency warning signs.
 
+STEP 3 — MANDATORY HERB DECLARATION (safety-critical):
+
+After your complete response, you MUST append an HTML comment listing EVERY herb, spice, or natural ingredient you recommended, using common English names. This declaration is parsed by the safety engine — omitting an ingredient bypasses safety checks and may harm the patient.
+
+Format (on a single line, at the very end):
+<!-- HERBS_USED: ginger, turmeric, honey, garlic -->
+
+Rules:
+- List EVERY ingredient that is a herb, spice, plant extract, or natural remedy
+- Use the common English name (e.g., "turmeric" not "curcuma longa")
+- Include ingredients in teas, pastes, compresses — anything the patient will ingest or apply
+- Do NOT omit substituted ingredients — list what you actually recommended
+- If you recommended zero herbal ingredients, write: <!-- HERBS_USED: none -->
+
 CONTEXT:
 Patient symptoms: {user_symptoms}
 

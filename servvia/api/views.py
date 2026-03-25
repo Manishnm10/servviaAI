@@ -62,7 +62,11 @@ from core.models import (
     ValidationResult,
 )
 from chronobiology.inference import ChronobiologyEngine
-from neurosymbolic.temporal_validator import TemporalSafetyValidator
+from neurosymbolic.temporal_validator import (
+    TemporalSafetyValidator,
+    HERB_ALIASES,
+    INTERACTION_DATABASE,
+)
 from legacy_healthcare.rag_service.execute_rag import EmergencySystem
 
 # Trust Engine for scientific validation
@@ -164,89 +168,388 @@ def _build_medical_profile(email_id: str, profile_data: dict = None) -> UserMedi
 # ═══════════════════════════════════════════════════════════════════════════
 # HELPER: EXTRACT HERBS FROM LLM RESPONSE FOR SAFETY VALIDATION
 # ═══════════════════════════════════════════════════════════════════════════
+#
+# Defense-in-depth extraction:
+#   PRIMARY  — Parse structured <!-- HERBS_USED: ... --> tag from LLM output
+#              (the Proposer prompt mandates this declaration).
+#   FALLBACK — Regex scan with full synonym resolution via HERB_ALIASES
+#              from the temporal validator (same source of truth).
+#   FINAL    — Union of both methods. A herb caught by *either* path
+#              proceeds to the deterministic safety engine.
+#
+# All returned names are CANONICAL (e.g. "curcumin" → "turmeric"), so the
+# INTERACTION_DATABASE always matches.
+# ═══════════════════════════════════════════════════════════════════════════
 
-_HERB_SCAN_LIST = [
-    "ginger", "turmeric", "garlic", "ashwagandha", "chamomile", "valerian",
-    "ginseng", "echinacea", "licorice", "ginkgo", "kava", "peppermint",
-    "st. john's wort", "st john's wort", "tulsi", "neem", "amla",
-    "fenugreek", "cinnamon", "fennel", "cumin", "grapefruit", "honey",
+# ── Build unified scan table at import time ──────────────────────────────
+# Maps every known surface form (alias or canonical name) → canonical name.
+# Sources: HERB_ALIASES from temporal_validator + canonical names from
+#          INTERACTION_DATABASE + additional common herbs.
+
+_ADDITIONAL_CANONICAL_HERBS = [
+    # Herbs in the old scan list that have no INTERACTION_DATABASE entry
+    # and no alias mapping — we still want to detect them.
+    "ginseng", "peppermint", "tulsi", "neem", "amla",
+    "fennel", "cumin", "grapefruit", "honey",
     "aloe vera", "moringa", "triphala", "brahmi", "shatavari",
-    # Extended scan list for better safety coverage
     "eucalyptus", "lavender", "clove", "cardamom", "black pepper",
-    "oregano", "thyme", "rosemary", "saffron", "milk thistle",
-    "dong quai", "black cohosh", "evening primrose", "saw palmetto",
+    "oregano", "thyme", "rosemary", "saffron",
+    "black cohosh", "evening primrose",
     "goldenseal", "marshmallow root", "slippery elm", "dandelion",
     "nettle", "elderberry", "astragalus", "cat's claw", "devil's claw",
-    "green tea", "goji berry", "maca", "rhodiola", "passionflower",
+    "goji berry", "maca", "rhodiola", "passionflower",
     "lemon balm", "jaggery", "coconut oil", "sesame oil", "mustard oil",
     "camphor", "menthol", "ajwain", "carom seeds", "asafoetida",
+    "feverfew", "cranberry", "dong quai",
 ]
 
-_ALLERGEN_SUBSTITUTE_MAP = {
-    "honey":       "jaggery, maple syrup, or agave nectar",
-    "ginger":      "cinnamon or licorice root tea",
-    "turmeric":    "cinnamon or saffron (small amounts)",
-    "garlic":      "onion, leek, or asafoetida (hing)",
-    "cinnamon":    "cardamom or star anise",
-    "chamomile":   "peppermint tea or lemon balm",
-    "peppermint":  "spearmint or fennel tea",
-    "aloe vera":   "cucumber gel or calendula",
-    "neem":        "eucalyptus steam (topical/inhalation only)",
-    "fennel":      "anise or dill seeds",
-    "cumin":       "coriander or caraway",
-    "fenugreek":   "fennel seeds or mustard seeds",
-    "licorice":    "fennel or anise root tea",
-    "amla":        "lemon juice or hibiscus tea",
-    "ashwagandha": "holy basil (tulsi) or shatavari",
-    "tulsi":       "holy basil alternatives or mint tea",
-    "eucalyptus":  "peppermint or camphor steam (diluted)",
-    "lavender":    "chamomile or lemon balm",
-    "clove":       "cinnamon or nutmeg (small amounts)",
-    "black pepper":"white pepper or long pepper (pippali)",
-    "green tea":   "rooibos or white tea",
-    "elderberry":  "vitamin C-rich fruits (amla, citrus)",
-    "camphor":     "menthol balm or eucalyptus oil (diluted)",
-    "mustard oil": "sesame oil or coconut oil",
-    "ajwain":      "cumin or fennel seeds",
-    "asafoetida":  "garlic or onion powder",
-    "milk thistle": "dandelion root tea",
-    "passionflower":"lemon balm or valerian (if no interaction)",
+def _build_synonym_table() -> dict[str, str]:
+    """Build surface-form → canonical-name mapping (once, at import)."""
+    table: dict[str, str] = {}
+
+    # 1. All canonical herb names from the interaction database
+    for canonical in INTERACTION_DATABASE:
+        table[canonical.lower()] = canonical.lower()
+
+    # 2. All aliases from the temporal validator
+    for alias, canonical in HERB_ALIASES.items():
+        table[alias.lower()] = canonical.lower()
+
+    # 3. Additional canonical herbs (identity mapping)
+    for herb in _ADDITIONAL_CANONICAL_HERBS:
+        h = herb.lower()
+        if h not in table:
+            table[h] = h
+
+    return table
+
+# Surface form → canonical name (e.g. "curcumin" → "turmeric")
+_SYNONYM_TABLE: dict[str, str] = _build_synonym_table()
+
+# Pre-compiled regex patterns keyed by surface form, longest-first so
+# "ginkgo biloba" matches before "ginkgo".
+_SCAN_PATTERNS: list[tuple[re.Pattern, str]] = sorted(
+    [
+        (re.compile(r'\b' + re.escape(surface) + r'\b', re.IGNORECASE), canonical)
+        for surface, canonical in _SYNONYM_TABLE.items()
+    ],
+    key=lambda pair: len(pair[0].pattern),
+    reverse=True,  # longest surface forms first
+)
+
+# Primary substitute: the single best swap used for in-text replacement.
+_PRIMARY_SUBSTITUTE = {
+    "honey":        "jaggery",
+    "ginger":       "cinnamon",
+    "turmeric":     "saffron",
+    "garlic":       "asafoetida (hing)",
+    "cinnamon":     "cardamom",
+    "chamomile":    "peppermint",
+    "peppermint":   "spearmint",
+    "aloe vera":    "cucumber gel",
+    "neem":         "tea tree oil (diluted)",
+    "fennel":       "anise",
+    "cumin":        "coriander",
+    "fenugreek":    "fennel",
+    "licorice":     "fennel",
+    "amla":         "lemon",
+    "ashwagandha":  "holy basil (tulsi)",
+    "tulsi":        "peppermint",
+    "eucalyptus":   "peppermint",
+    "lavender":     "lemon balm",
+    "clove":        "cardamom",
+    "black pepper": "white pepper",
+    "green tea":    "rooibos",
+    "elderberry":   "rose hip",
+    "camphor":      "menthol",
+    "mustard oil":  "sesame oil",
+    "ajwain":       "cumin",
+    "asafoetida":   "garlic",
+    "milk thistle": "dandelion root",
+    "passionflower":"lemon balm",
+    "feverfew":     "peppermint oil",
+    "dong quai":    "shatavari",
+    "cranberry":    "blueberry",
+    "saw palmetto": "pumpkin seed oil",
+    "ginkgo":       "brahmi",
+    "st. john's wort": "lemon balm",
+    "kava":         "valerian",
 }
+
+# Full alternatives list shown in the Ingredient Alert summary.
+_ALLERGEN_SUBSTITUTE_MAP = {
+    "honey":       "jaggery, maple syrup, agave nectar, or date syrup",
+    "ginger":      "cinnamon, licorice root, warm lemon water with black pepper, or cardamom",
+    "turmeric":    "saffron (small amounts), cinnamon, black pepper in warm milk, or rosemary",
+    "garlic":      "asafoetida (hing), onion, leek, or chives",
+    "cinnamon":    "cardamom, star anise, nutmeg (small amounts), or vanilla",
+    "chamomile":   "peppermint, lemon balm, lavender tea, or rooibos",
+    "peppermint":  "spearmint, fennel tea, lemon balm, or holy basil (tulsi)",
+    "aloe vera":   "cucumber gel, calendula, or coconut oil (topical)",
+    "neem":        "tea tree oil (diluted), eucalyptus steam, or turmeric paste",
+    "fennel":      "anise seeds, dill seeds, or caraway",
+    "cumin":       "coriander, caraway, or fennel seeds",
+    "fenugreek":   "fennel seeds, mustard seeds, or cumin",
+    "licorice":    "fennel tea, anise root tea, or marshmallow root",
+    "amla":        "lemon juice, hibiscus tea, or vitamin C-rich fruits",
+    "ashwagandha": "holy basil (tulsi), shatavari, or brahmi",
+    "tulsi":       "peppermint, lemon balm, or oregano",
+    "eucalyptus":  "peppermint steam, camphor steam (diluted), or menthol balm",
+    "lavender":    "lemon balm, chamomile, or valerian",
+    "clove":       "cardamom, cinnamon, or nutmeg (small amounts)",
+    "black pepper":"white pepper, long pepper (pippali), or cayenne (small amounts)",
+    "green tea":   "rooibos, white tea, or hibiscus tea",
+    "elderberry":  "rose hip tea, vitamin C-rich fruits (amla, citrus), or echinacea",
+    "camphor":     "menthol balm, eucalyptus oil (diluted), or peppermint oil",
+    "mustard oil": "sesame oil, coconut oil, or olive oil",
+    "ajwain":      "cumin seeds, fennel seeds, or caraway seeds",
+    "asafoetida":  "garlic, onion powder, or leek",
+    "milk thistle": "dandelion root tea, artichoke extract, or burdock root",
+    "passionflower":"lemon balm, valerian (if no interaction), or chamomile",
+    "feverfew":    "peppermint oil (topical), butterbur (PA-free), or magnesium supplement",
+    "dong quai":   "shatavari, red raspberry leaf, or vitex (chasteberry)",
+    "cranberry":   "blueberry, pomegranate juice, or vitamin C supplement",
+    "saw palmetto":"pumpkin seed oil, pygeum, or stinging nettle root",
+    "ginkgo":      "brahmi (bacopa), rosemary, or lion's mane mushroom",
+    "st. john's wort": "lemon balm, saffron, or SAMe (under medical supervision)",
+    "kava":        "valerian, passionflower, or lemon balm",
+}
+
+# Lines that are allergy disclaimers — herbs mentioned here should not
+# trigger a safety flag (the LLM is *warning* about them, not prescribing).
+_DISCLAIMER_KW = (
+    'avoid', 'allergic', 'allergy', 'allergen',
+    'contraindicated', 'do not use', 'do not consume',
+)
+
+
+def _extract_herbs_structured(response_text: str) -> set[str]:
+    """PRIMARY: parse the machine-readable herb declaration tag.
+
+    The Proposer LLM is instructed to append:
+        <!-- HERBS_USED: ginger, turmeric, honey -->
+    Returns a set of canonical names, or empty set if tag is absent.
+    """
+    match = re.search(
+        r'<!--\s*HERBS_USED:\s*(.+?)\s*-->',
+        response_text,
+        re.IGNORECASE,
+    )
+    if not match:
+        return set()
+    raw_herbs = [h.strip().lower() for h in match.group(1).split(',') if h.strip()]
+    canonical = set()
+    for h in raw_herbs:
+        canonical.add(_SYNONYM_TABLE.get(h, h))
+    return canonical
+
+
+def _extract_herbs_regex(response_text: str) -> set[str]:
+    """FALLBACK: regex scan with full synonym resolution.
+
+    Filters out disclaimer/warning lines before scanning so herbs
+    mentioned only in "avoid X due to allergy" context are not
+    false-flagged.
+    """
+    lines = response_text.split('\n')
+    filtered = '\n'.join(
+        ln for ln in lines
+        if not any(kw in ln.lower() for kw in _DISCLAIMER_KW)
+    )
+    found: set[str] = set()
+    for pattern, canonical in _SCAN_PATTERNS:
+        if pattern.search(filtered):
+            found.add(canonical)
+    return found
 
 
 def _extract_herbs_from_response(response_text: str) -> list[str]:
+    """Extract herbs via structured tag + regex fallback, return canonical names."""
     if not response_text:
         return []
-    response_lower = response_text.lower()
-    found = []
-    for herb in _HERB_SCAN_LIST:
-        if re.search(r'\b' + re.escape(herb) + r'\b', response_lower):
-            found.append(herb)
-    return found
+    structured = _extract_herbs_structured(response_text)
+    regex = _extract_herbs_regex(response_text)
+    # Union of both — a herb caught by *either* method is validated
+    return list(structured | regex)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
 # HELPER: FORMAT SAFETY BLOCK RESPONSE
 # ═══════════════════════════════════════════════════════════════════════════
 
+def _humanize_safety_reason(herb_name: str, result) -> str:
+    """Convert the raw validator reason into plain-language explanation."""
+    herb = herb_name.title()
+    # Pull the drug name from the result's contraindications or reason
+    reason_raw = result.reason or ""
+
+    # Extract the interacting drug from the reason string
+    # Pattern: 'herb' is contraindicated with 'drug' (class: class_name)
+    drug_match = re.search(
+        r"contraindicated with '([^']+)'", reason_raw, re.IGNORECASE,
+    )
+    drug_name = drug_match.group(1).title() if drug_match else "your medication"
+
+    # Determine the type of interaction for plain-language phrasing
+    reason_lower = reason_raw.lower()
+    if "allergy" in reason_lower or "allergen" in reason_lower:
+        return (
+            f"You have a declared allergy to {herb}. Even small amounts "
+            f"could trigger an allergic reaction, so it has been replaced "
+            f"with a safe alternative."
+        )
+    elif "platelet" in reason_lower or "bleeding" in reason_lower or "anticoagulant" in reason_lower:
+        return (
+            f"{herb} can thin the blood naturally. Since you are taking "
+            f"{drug_name}, which also thins the blood, combining them "
+            f"could increase the risk of bleeding. To keep you safe, "
+            f"we have replaced it with a gentle alternative."
+        )
+    elif "serotonin" in reason_lower:
+        return (
+            f"{herb} affects serotonin levels in the brain. Since you are "
+            f"taking {drug_name}, which also affects serotonin, combining "
+            f"them could cause a dangerous condition called Serotonin "
+            f"Syndrome (symptoms include agitation, rapid heartbeat, and "
+            f"high temperature). We have replaced it with a safe alternative."
+        )
+    elif "liver" in reason_lower or "hepat" in reason_lower:
+        return (
+            f"{herb} is processed by the liver. Since you are taking "
+            f"{drug_name}, which is also processed by the liver, combining "
+            f"them could put extra strain on your liver. We have replaced "
+            f"it with a gentler alternative."
+        )
+    elif "blood sugar" in reason_lower or "hypoglyc" in reason_lower or "glucose" in reason_lower:
+        return (
+            f"{herb} can lower blood sugar naturally. Since you are taking "
+            f"{drug_name}, which also lowers blood sugar, combining them "
+            f"could cause your blood sugar to drop too low. We have replaced "
+            f"it with a safe alternative."
+        )
+    elif "blood pressure" in reason_lower:
+        return (
+            f"{herb} can affect blood pressure. Since you are taking "
+            f"{drug_name}, combining them could cause your blood pressure "
+            f"to fluctuate. We have replaced it with a safe alternative."
+        )
+    elif "immunosuppressant" in reason_lower or "immune" in reason_lower:
+        return (
+            f"{herb} stimulates the immune system. Since you are taking "
+            f"{drug_name} to suppress your immune system (for example, "
+            f"after a transplant or for an autoimmune condition), "
+            f"{herb.lower()} could work against your medication. "
+            f"We have replaced it with a safe alternative."
+        )
+    elif "seizure" in reason_lower:
+        return (
+            f"{herb} may lower the seizure threshold. Since you are taking "
+            f"{drug_name} to prevent seizures, combining them could reduce "
+            f"the effectiveness of your medication. We have replaced it "
+            f"with a safe alternative."
+        )
+    elif "cyp" in reason_lower:
+        # CYP enzyme interactions — explain simply
+        return (
+            f"{herb} can interfere with how your body processes "
+            f"{drug_name}. This could cause {drug_name.lower()} to build "
+            f"up to unsafe levels in your body or become less effective. "
+            f"We have replaced it with a safe alternative."
+        )
+    else:
+        # Generic fallback — still human-readable
+        return (
+            f"{herb} may interact with {drug_name} that you are currently "
+            f"taking. To keep you safe, we have replaced it with a "
+            f"gentle alternative."
+        )
+
+
 def _format_safety_inline_warning(flagged_herbs: list) -> str:
-    lines = ["\u26a0\ufe0f **Ingredient Alert \u2014 Safety Flag**\n"]
+    """Format the Ingredient Alert summary placed after remedies.
+
+    States which herb was substituted, why (in plain language), and
+    lists alternatives.
+    """
+    lines = ["\n---\n", "## \u26a0\ufe0f Ingredient Alert \u2014 Safety Flag\n"]
     for herb_name, result in flagged_herbs:
-        substitute = _ALLERGEN_SUBSTITUTE_MAP.get(herb_name.lower())
-        line = f"\u26d4 **{herb_name.title()}** is flagged for your profile \u2014 {result.reason}"
+        primary = _PRIMARY_SUBSTITUTE.get(herb_name.lower(), "a safe alternative")
+        alternatives = _ALLERGEN_SUBSTITUTE_MAP.get(herb_name.lower(), "")
+        human_reason = _humanize_safety_reason(herb_name, result)
+
+        lines.append(
+            f"\u26d4 **{primary.title()}** was substituted in place of "
+            f"**{herb_name.title()}** \u2014 {human_reason}"
+        )
         if result.washout_days_remaining:
-            line += f" ({result.washout_days_remaining} day washout remaining)"
-        lines.append(line)
-        if substitute:
-            lines.append(f"  \U0001f4a1 *Safe substitute: {substitute}*")
+            lines.append(
+                f"  \u23f3 *Washout period: "
+                f"{result.washout_days_remaining} days remaining*"
+            )
+        if alternatives:
+            lines.append(
+                f"  \U0001f4a1 **Other safe alternatives:** {alternatives}"
+            )
+        lines.append("")  # blank line between entries
 
     lines.append(
-        "\n*Please skip or substitute any flagged ingredient above. "
-        "The remedies below are otherwise safe for your profile.*\n\n"
-        "\U0001f512 *Safety check by ServVia's Neurosymbolic Pharmacovigilance Engine.*\n\n"
-        "---\n"
+        "\U0001f512 *Safety check by ServVia\u2019s "
+        "Neurosymbolic Pharmacovigilance Engine.*"
     )
     return "\n".join(lines) + "\n"
+
+
+def _substitute_flagged_remedies(response: str, flagged_herbs: list) -> str:
+    """Replace flagged herb names with safe substitutes across the entire response.
+
+    Preserves original case of the first letter.
+    """
+    for herb_name, _result in flagged_herbs:
+        primary = _PRIMARY_SUBSTITUTE.get(herb_name.lower())
+        if not primary:
+            continue
+
+        herb_pattern = re.compile(
+            r'\b' + re.escape(herb_name) + r'\b', re.IGNORECASE,
+        )
+
+        def _case_preserving_replace(match, _sub=primary):
+            original = match.group(0)
+            if original[0].isupper():
+                return _sub[0].upper() + _sub[1:]
+            return _sub.lower()
+
+        response = herb_pattern.sub(_case_preserving_replace, response)
+
+    return response
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# HELPER: INSERT BLOCK AFTER REMEDIES (before ER / "See a Doctor" section)
+# ═══════════════════════════════════════════════════════════════════════════
+
+_POST_REMEDY_HEADERS = [
+    "When to Go to the Emergency Room Immediately",
+    "When to Go to the Emergency Room",
+    "When to See a Doctor",
+]
+
+def _insert_after_remedies(response: str, block: str) -> str:
+    """Insert *block* right before the ER / 'See a Doctor' section.
+
+    Falls back to appending at the end if no matching header is found.
+    """
+    for header in _POST_REMEDY_HEADERS:
+        match = re.search(
+            r'(?m)^#{1,3}\s*' + re.escape(header),
+            response,
+            re.IGNORECASE,
+        )
+        if match:
+            pos = match.start()
+            return response[:pos].rstrip() + "\n\n" + block.strip() + "\n\n" + response[pos:]
+    # Fallback: append at end
+    return response + "\n\n" + block
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -519,7 +822,9 @@ async def _run_pipeline(
             )
 
             if trust_result.formatted_output:
-                llm_response += trust_result.formatted_output
+                llm_response = _insert_after_remedies(
+                    llm_response, trust_result.formatted_output
+                )
 
             trust_data = {
                 "verified_herbs": trust_result.verified_herbs,
@@ -738,12 +1043,20 @@ class ServViaChatViewSet(GenericViewSet):
             # STEP E: FINAL OUTPUT
             # ═══════════════════════════════════════════════════════
             if flagged_herbs:
+                # 1. Replace flagged herbs with safe substitutes in remedy text
+                final_response = _substitute_flagged_remedies(llm_response, flagged_herbs)
+                # 2. Insert summary alert block after all remedies
                 warning_block = _format_safety_inline_warning(flagged_herbs)
-                final_response = warning_block + llm_response
+                final_response = _insert_after_remedies(final_response, warning_block)
                 pipeline_status = "safety_flagged"
             else:
                 final_response = llm_response
                 pipeline_status = "safe_response"
+
+            # Strip the machine-readable herb declaration before sending to UI
+            final_response = re.sub(
+                r'\s*<!--\s*HERBS_USED:.*?-->', '', final_response
+            ).rstrip()
 
             # ─── Build response ──────────────────────────────────
             response_data.data["message"] = "Successful retrieval of response"
@@ -1034,12 +1347,20 @@ def stream_chat_view(request):
 
             # ─── BUILD RESULT ─────────────────────────────────
             if flagged_herbs:
+                # 1. Replace flagged herbs with safe substitutes in remedy text
+                final_response = _substitute_flagged_remedies(llm_response, flagged_herbs)
+                # 2. Insert summary alert block after all remedies
                 warning_block = _format_safety_inline_warning(flagged_herbs)
-                final_response = warning_block + llm_response
+                final_response = _insert_after_remedies(final_response, warning_block)
                 pipeline_status = "safety_flagged"
             else:
                 final_response = llm_response
                 pipeline_status = "safe_response"
+
+            # Strip the machine-readable herb declaration before sending to UI
+            final_response = re.sub(
+                r'\s*<!--\s*HERBS_USED:.*?-->', '', final_response
+            ).rstrip()
 
             metadata = {
                 "pipeline": pipeline_status,

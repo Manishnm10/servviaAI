@@ -1457,14 +1457,6 @@
             ch.innerHTML = `<span class="chrono-icon"><i class="fas fa-clock" style="color:#818cf8"></i></span><div class="chrono-details"><div class="chrono-label">Biological Context</div><span class="chrono-tag">${formatPhaseLabel(bs.circadian_phase)}</span><span class="chrono-tag">${formatPhaseLabel(bs.seasonal_influence)}</span><span class="chrono-tag">Sleep: ${formatPhaseLabel(bs.sleep_pressure)}</span>${bs.is_misaligned ? '<span class="chrono-tag" style="background:rgba(239,68,68,0.1);color:#fca5a5">Misaligned</span>' : ''}</div>`;
             cd.appendChild(ch);
           }
-          if (pipelineData.safety && !pipelineData.safety.is_safe) {
-            const s = pipelineData.safety, sd = document.createElement("div"); sd.className = "safety-block-card";
-            let sh = `<div class="safety-title"><i class="fas fa-exclamation-triangle"></i> Safety Details</div><div class="safety-detail">`;
-            if (s.blocked_herb) sh += `<strong>Blocked:</strong> ${s.blocked_herb}<br>`;
-            if (s.washout_days_remaining) sh += `<strong>Washout:</strong> ${s.washout_days_remaining} day(s)<br>`;
-            if (s.contraindications && s.contraindications.length) sh += `<strong>Contraindications:</strong> ${s.contraindications.join(', ')}`;
-            sh += '</div>'; sd.innerHTML = sh; cd.appendChild(sd);
-          }
         }
         const ad = document.createElement("div"); ad.className = "message-actions";
         const sb = document.createElement("button"); sb.className = "speaker-btn"; sb.innerHTML = '<i class="fas fa-volume-up"></i>'; sb.title = "Listen"; sb.onclick = () => toggleSpeech(message, sb);

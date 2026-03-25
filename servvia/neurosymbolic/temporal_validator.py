@@ -383,6 +383,282 @@ INTERACTION_DATABASE: Dict[str, List[InteractionRule]] = {
             ),
         ),
     ],
+
+    # -----------------------------------------------------------------
+    # Garlic — antiplatelet activity, CYP3A4 induction
+    # -----------------------------------------------------------------
+    "garlic": [
+        InteractionRule(
+            drug_class="warfarin",
+            severity=InteractionSeverity.HIGH,
+            washout_days=7,
+            reason=(
+                "Garlic inhibits platelet aggregation via ajoene and "
+                "allicin, significantly increasing bleeding risk when "
+                "combined with warfarin. Multiple case reports of elevated "
+                "INR and spontaneous bleeding."
+            ),
+            pmid="PMC4032839",
+        ),
+        InteractionRule(
+            drug_class="blood thinner",
+            severity=InteractionSeverity.HIGH,
+            washout_days=7,
+            reason=(
+                "Garlic's antiplatelet activity (ajoene, allicin) is "
+                "additive with anticoagulants and antiplatelets, raising "
+                "hemorrhagic risk."
+            ),
+            pmid="PMC4032839",
+        ),
+        InteractionRule(
+            drug_class="hiv medication",
+            severity=InteractionSeverity.MODERATE,
+            washout_days=0,
+            reason=(
+                "Garlic supplements induce CYP3A4 and can reduce plasma "
+                "levels of saquinavir and other protease inhibitors by "
+                "up to 50%."
+            ),
+            pmid="11180024",
+        ),
+    ],
+
+    # -----------------------------------------------------------------
+    # Milk Thistle — CYP2C9 / CYP3A4 inhibition
+    # -----------------------------------------------------------------
+    "milk thistle": [
+        InteractionRule(
+            drug_class="warfarin",
+            severity=InteractionSeverity.MODERATE,
+            washout_days=5,
+            reason=(
+                "Silymarin (active constituent of milk thistle) inhibits "
+                "CYP2C9, the primary metabolic pathway of S-warfarin. "
+                "This can elevate INR and increase bleeding risk."
+            ),
+            pmid="PMC2763259",
+        ),
+        InteractionRule(
+            drug_class="statin",
+            severity=InteractionSeverity.MODERATE,
+            washout_days=3,
+            reason=(
+                "Milk thistle inhibits CYP3A4 and OATP1B1 transport. "
+                "Co-administration with statins (especially simvastatin, "
+                "atorvastatin) can increase statin plasma levels, raising "
+                "myopathy/rhabdomyolysis risk."
+            ),
+        ),
+        InteractionRule(
+            drug_class="diabetes medication",
+            severity=InteractionSeverity.MODERATE,
+            washout_days=0,
+            reason=(
+                "Silymarin has hypoglycemic activity. Combined with "
+                "metformin or insulin, it may potentiate blood sugar "
+                "lowering and increase hypoglycemia risk."
+            ),
+        ),
+    ],
+
+    # -----------------------------------------------------------------
+    # Saw Palmetto — CYP3A4 / CYP2C9 substrate competition
+    # -----------------------------------------------------------------
+    "saw palmetto": [
+        InteractionRule(
+            drug_class="warfarin",
+            severity=InteractionSeverity.MODERATE,
+            washout_days=5,
+            reason=(
+                "Saw palmetto has antiplatelet properties and may inhibit "
+                "CYP2C9. Case reports document INR elevation and bleeding "
+                "when co-administered with warfarin."
+            ),
+        ),
+        InteractionRule(
+            drug_class="blood thinner",
+            severity=InteractionSeverity.MODERATE,
+            washout_days=5,
+            reason=(
+                "Saw palmetto's antiplatelet activity is additive with "
+                "other anticoagulants, increasing hemorrhagic risk."
+            ),
+        ),
+    ],
+
+    # -----------------------------------------------------------------
+    # Feverfew — antiplatelet, prostaglandin inhibition
+    # -----------------------------------------------------------------
+    "feverfew": [
+        InteractionRule(
+            drug_class="warfarin",
+            severity=InteractionSeverity.HIGH,
+            washout_days=7,
+            reason=(
+                "Feverfew inhibits platelet aggregation via parthenolide "
+                "and prostaglandin synthesis inhibition. Combined with "
+                "warfarin, this significantly elevates bleeding risk."
+            ),
+        ),
+        InteractionRule(
+            drug_class="blood thinner",
+            severity=InteractionSeverity.HIGH,
+            washout_days=7,
+            reason=(
+                "Feverfew's antiplatelet mechanism is additive with "
+                "anticoagulants and antiplatelet agents."
+            ),
+        ),
+    ],
+
+    # -----------------------------------------------------------------
+    # Dong Quai — coumarin content, CYP3A4 inhibition
+    # -----------------------------------------------------------------
+    "dong quai": [
+        InteractionRule(
+            drug_class="warfarin",
+            severity=InteractionSeverity.CRITICAL,
+            washout_days=10,
+            reason=(
+                "Dong quai contains natural coumarins that potentiate "
+                "warfarin's anticoagulant effect. Case reports document "
+                "INR >10 and serious bleeding. Co-administration is "
+                "strictly contraindicated."
+            ),
+            pmid="9727078",
+        ),
+        InteractionRule(
+            drug_class="blood thinner",
+            severity=InteractionSeverity.HIGH,
+            washout_days=7,
+            reason=(
+                "The coumarin content in dong quai is additive with "
+                "all anticoagulant and antiplatelet agents."
+            ),
+        ),
+    ],
+
+    # -----------------------------------------------------------------
+    # Cranberry — CYP2C9 inhibition, warfarin potentiation
+    # -----------------------------------------------------------------
+    "cranberry": [
+        InteractionRule(
+            drug_class="warfarin",
+            severity=InteractionSeverity.MODERATE,
+            washout_days=3,
+            reason=(
+                "Cranberry juice/extract inhibits CYP2C9, the primary "
+                "warfarin metabolic pathway. Large or sustained intake "
+                "can elevate INR. Multiple case reports including one "
+                "fatality documented by MHRA."
+            ),
+            pmid="PMC1884543",
+        ),
+    ],
+
+    # -----------------------------------------------------------------
+    # Chamomile — coumarin content, CYP1A2 / CYP3A4
+    # -----------------------------------------------------------------
+    "chamomile": [
+        InteractionRule(
+            drug_class="warfarin",
+            severity=InteractionSeverity.MODERATE,
+            washout_days=3,
+            reason=(
+                "Chamomile contains natural coumarins and inhibits "
+                "CYP1A2. Concentrated chamomile tea or supplements "
+                "can elevate INR when combined with warfarin."
+            ),
+        ),
+        InteractionRule(
+            drug_class="sedative",
+            severity=InteractionSeverity.MODERATE,
+            washout_days=0,
+            reason=(
+                "Chamomile has GABAergic sedative activity. Combined "
+                "with sedatives or benzodiazepines, it may potentiate "
+                "CNS depression."
+            ),
+        ),
+    ],
+
+    # -----------------------------------------------------------------
+    # Green Tea — vitamin K content, CYP3A4
+    # -----------------------------------------------------------------
+    "green tea": [
+        InteractionRule(
+            drug_class="warfarin",
+            severity=InteractionSeverity.MODERATE,
+            washout_days=0,
+            reason=(
+                "Green tea contains vitamin K which directly antagonizes "
+                "warfarin's mechanism. Large or variable intake causes "
+                "INR fluctuations. EGCG also inhibits CYP3A4."
+            ),
+        ),
+        InteractionRule(
+            drug_class="blood pressure medication",
+            severity=InteractionSeverity.LOW,
+            washout_days=0,
+            reason=(
+                "Caffeine in green tea can transiently raise blood "
+                "pressure, potentially reducing antihypertensive efficacy."
+            ),
+        ),
+    ],
+
+    # -----------------------------------------------------------------
+    # Fenugreek — hypoglycemic, anticoagulant activity
+    # -----------------------------------------------------------------
+    "fenugreek": [
+        InteractionRule(
+            drug_class="diabetes medication",
+            severity=InteractionSeverity.MODERATE,
+            washout_days=0,
+            reason=(
+                "Fenugreek has significant hypoglycemic activity via "
+                "4-hydroxyisoleucine. Combined with metformin or insulin, "
+                "it can cause dangerous hypoglycemia."
+            ),
+            pmid="PMC3912882",
+        ),
+        InteractionRule(
+            drug_class="warfarin",
+            severity=InteractionSeverity.MODERATE,
+            washout_days=3,
+            reason=(
+                "Fenugreek contains coumarin compounds and has "
+                "anticoagulant activity. Co-administration with warfarin "
+                "may potentiate bleeding risk."
+            ),
+        ),
+    ],
+
+    # -----------------------------------------------------------------
+    # Cinnamon — CYP2C9, hypoglycemic
+    # -----------------------------------------------------------------
+    "cinnamon": [
+        InteractionRule(
+            drug_class="diabetes medication",
+            severity=InteractionSeverity.MODERATE,
+            washout_days=0,
+            reason=(
+                "Cinnamon (especially cassia variety) lowers blood glucose "
+                "via enhanced insulin sensitivity. Combined with diabetes "
+                "medications it may cause hypoglycemia."
+            ),
+        ),
+        InteractionRule(
+            drug_class="warfarin",
+            severity=InteractionSeverity.LOW,
+            washout_days=0,
+            reason=(
+                "Cassia cinnamon contains coumarin. High supplemental "
+                "doses may have additive anticoagulant effect with warfarin."
+            ),
+        ),
+    ],
 }
 
 # =============================================================================
@@ -523,21 +799,125 @@ DRUG_CLASS_ALIASES: Dict[str, str] = {
 
 # Herb name aliases for flexible matching
 HERB_ALIASES: Dict[str, str] = {
+    # ── St. John's Wort ──────────────────────────────────────────────
     "st john's wort": "st. john's wort",
     "st johns wort": "st. john's wort",
     "saint john's wort": "st. john's wort",
     "hypericum": "st. john's wort",
+    "hypericum perforatum": "st. john's wort",
+    # ── Turmeric ─────────────────────────────────────────────────────
     "curcumin": "turmeric",
     "curcuma": "turmeric",
+    "curcuma longa": "turmeric",
     "haldi": "turmeric",
+    "indian saffron": "turmeric",
+    "turmeric root": "turmeric",
+    "turmeric powder": "turmeric",
+    "curcumin extract": "turmeric",
+    "curcuminoid": "turmeric",
+    "curcuminoids": "turmeric",
+    # ── Ginger ───────────────────────────────────────────────────────
     "zingiber": "ginger",
+    "zingiber officinale": "ginger",
     "adrak": "ginger",
+    "sonth": "ginger",
+    "ginger root": "ginger",
+    "ground ginger": "ginger",
+    "dried ginger": "ginger",
+    # ── Garlic ───────────────────────────────────────────────────────
+    "allium sativum": "garlic",
+    "lahsun": "garlic",
+    "garlic extract": "garlic",
+    "aged garlic": "garlic",
+    "garlic supplement": "garlic",
+    # ── Ashwagandha ──────────────────────────────────────────────────
     "withania": "ashwagandha",
+    "withania somnifera": "ashwagandha",
     "winter cherry": "ashwagandha",
+    "indian ginseng": "ashwagandha",
+    # ── Licorice ─────────────────────────────────────────────────────
     "mulethi": "licorice",
     "glycyrrhiza": "licorice",
+    "glycyrrhiza glabra": "licorice",
+    "licorice root": "licorice",
+    "liquorice": "licorice",
+    "yashtimadhu": "licorice",
+    # ── Kava ─────────────────────────────────────────────────────────
     "piper methysticum": "kava",
+    "kava kava": "kava",
+    # ── Ginkgo ───────────────────────────────────────────────────────
     "ginkgo biloba": "ginkgo",
+    "maidenhair tree": "ginkgo",
+    "ginkgo extract": "ginkgo",
+    # ── Echinacea ────────────────────────────────────────────────────
+    "echinacea purpurea": "echinacea",
+    "echinacea angustifolia": "echinacea",
+    "purple coneflower": "echinacea",
+    # ── Valerian ─────────────────────────────────────────────────────
+    "valeriana": "valerian",
+    "valeriana officinalis": "valerian",
+    "valerian root": "valerian",
+    "tagar": "valerian",
+    # ── Grapefruit ───────────────────────────────────────────────────
+    "grapefruit juice": "grapefruit",
+    "citrus paradisi": "grapefruit",
+    # ── Feverfew ─────────────────────────────────────────────────────
+    "feverfew": "feverfew",
+    "tanacetum parthenium": "feverfew",
+    # ── Milk Thistle ─────────────────────────────────────────────────
+    "silybum": "milk thistle",
+    "silybum marianum": "milk thistle",
+    "silymarin": "milk thistle",
+    "milk thistle extract": "milk thistle",
+    # ── Saw Palmetto ─────────────────────────────────────────────────
+    "serenoa repens": "saw palmetto",
+    "saw palmetto extract": "saw palmetto",
+    # ── Dong Quai ────────────────────────────────────────────────────
+    "dong quai": "dong quai",
+    "angelica sinensis": "dong quai",
+    "female ginseng": "dong quai",
+    # ── Chamomile ────────────────────────────────────────────────────
+    "matricaria chamomilla": "chamomile",
+    "chamomile tea": "chamomile",
+    "babune": "chamomile",
+    # ── Green Tea ────────────────────────────────────────────────────
+    "camellia sinensis": "green tea",
+    "matcha": "green tea",
+    "green tea extract": "green tea",
+    "egcg": "green tea",
+    # ── Aloe Vera ────────────────────────────────────────────────────
+    "aloe barbadensis": "aloe vera",
+    "ghritkumari": "aloe vera",
+    "kumari": "aloe vera",
+    # ── Fenugreek ────────────────────────────────────────────────────
+    "trigonella foenum-graecum": "fenugreek",
+    "methi": "fenugreek",
+    "fenugreek seeds": "fenugreek",
+    # ── Cinnamon ─────────────────────────────────────────────────────
+    "cinnamomum": "cinnamon",
+    "cinnamomum verum": "cinnamon",
+    "dalchini": "cinnamon",
+    # ── Neem ─────────────────────────────────────────────────────────
+    "azadirachta indica": "neem",
+    "nimba": "neem",
+    "margosa": "neem",
+    # ── Tulsi ────────────────────────────────────────────────────────
+    "ocimum tenuiflorum": "tulsi",
+    "ocimum sanctum": "tulsi",
+    "holy basil": "tulsi",
+    # ── Amla ─────────────────────────────────────────────────────────
+    "phyllanthus emblica": "amla",
+    "emblica officinalis": "amla",
+    "indian gooseberry": "amla",
+    "amalaki": "amla",
+    # ── Elderberry ───────────────────────────────────────────────────
+    "sambucus nigra": "elderberry",
+    "elderberry extract": "elderberry",
+    # ── Cranberry ────────────────────────────────────────────────────
+    "cranberry": "cranberry",
+    "vaccinium macrocarpon": "cranberry",
+    "cranberry extract": "cranberry",
+    "cranberry juice": "cranberry",
 }
 
 
