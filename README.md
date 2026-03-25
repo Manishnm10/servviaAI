@@ -78,7 +78,7 @@ Manages datasets, participant onboarding, data connectors (MySQL, Google Drive, 
 | **Primary LLM** | OpenAI gpt-4o-mini |
 | **Fallback LLM** | Groq llama-3.3-70b-versatile |
 | **Vision LLM** | Google Gemini API |
-| **Edge AI** | Qwen3.5-2B via Ollama (local inference) |
+| **Edge AI** | Moondreamvia Ollama (local inference) |
 | **Agent framework** | LangGraph 1.0.10 + LangChain Core 1.2.16 |
 | **Knowledge graph** | Neo4j 5.14.0 |
 | **Vector database** | Qdrant 1.8.0 |

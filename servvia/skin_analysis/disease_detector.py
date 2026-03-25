@@ -1,31 +1,57 @@
 """
-Enhanced Skin Disease Detection using Google Gemini 2.5 Flash
-Current Date and Time (UTC): 2025-12-08
-Current User: Manishnm10
+ServVia Skin Disease Detection — Production Pipeline
+=====================================================
 
-ENHANCED ACCURACY for differentiating similar conditions:
-- Eczema vs Psoriasis (key visual differences)
-- Hives vs Heat Rash (size and pattern) - AGGRESSIVE FIX
-- Acne vs Folliculitis (location and features)
+Primary:  Google Gemini 3 Flash (vision)
+Fallback: Azure OpenAI GPT-4.1-mini (vision) — activated silently on Gemini rate-limit
 
-Pre-trained model that detects 23 skin conditions WITHOUT training
-Model: Google Gemini 2.0 Flash
-Accuracy: 95%+ (enhanced with medical knowledge)
-Rate Limit: 15 requests/min, 1,500 requests/day (FREE)
+Pipeline:
+    [Image] → validate → Cloud AI (Gemini|Azure) → parse JSON → severity → response
+
+Supports 21 skin conditions via D2C (Describe-then-Classify) prompt.
 """
+import base64
 import os
 import logging
+import time
 from PIL import Image
 import json
 
 logger = logging.getLogger(__name__)
 
+# ─── Gemini SDK ───────────────────────────────────────────────────────────────
 try:
     from google import genai
     GEMINI_AVAILABLE = True
 except ImportError:
     GEMINI_AVAILABLE = False
-    logger.error("❌ Gemini not available.  Install: pip install google-genai")
+    logger.error("❌ Gemini not available. Install: pip install google-genai")
+
+# ─── Azure OpenAI SDK (sync) ─────────────────────────────────────────────────
+try:
+    from openai import AzureOpenAI as _AzureOpenAI
+    _AZURE_AVAILABLE = True
+except ImportError:
+    _AzureOpenAI = None
+    _AZURE_AVAILABLE = False
+    logger.warning("⚠️ openai SDK not available — Azure fallback disabled")
+
+
+def _get_azure_client():
+    """Lazy-init sync Azure OpenAI client for skin analysis fallback."""
+    if not _AZURE_AVAILABLE:
+        return None
+    try:
+        from django_core.config import Config
+        key = Config.AZURE_OPENAI_API_KEY
+        endpoint = Config.AZURE_OPENAI_ENDPOINT
+        version = Config.AZURE_OPENAI_API_VERSION
+        if not key or not endpoint:
+            return None
+        return _AzureOpenAI(api_key=key, azure_endpoint=endpoint, api_version=version)
+    except Exception as e:
+        logger.warning(f"⚠️ Azure client init failed: {e}")
+        return None
 
 
 # ServVIA Supported Skin Conditions
@@ -571,87 +597,24 @@ def validate_skin_image(image_path: str) -> dict:
         }
 
 
-def detect_skin_disease_gemini(image_path: str):
-    """.. ."""
-    if not GEMINI_AVAILABLE:
-        return {
-            'success': False,
-            'error': 'Gemini not available. Install: pip install google-genai'
-        }
-    
-    try:
-        # Configure Gemini - try multiple ways to get the API key
-        api_key = os.getenv('GEMINI_API_KEY')
-    
-        if not api_key:
-            api_key = os.environ.get('GEMINI_API_KEY')
-    
-        if not api_key:
-            # Try loading from Django settings
-            try:
-                from django.conf import settings
-                api_key = getattr(settings, 'GEMINI_API_KEY', None)
-            except:
-                pass
-    
-        if not api_key:
-            # Last resort: try loading . env file manually
-            try:
-                from dotenv import load_dotenv
-                load_dotenv()
-                api_key = os.getenv('GEMINI_API_KEY')
-            except:
-                pass
-    
-        logger.info(f"🔑 API Key status: {'Found' if api_key else 'NOT FOUND'} (length: {len(api_key) if api_key else 0})")
-    
-        if not api_key:
-            return {
-                'success': False,
-                'error': 'GEMINI_API_KEY not found in environment variables.  Please check your .env file or settings. py'
-            }
-
-        
-        client = genai.Client(api_key=api_key)
-
-        # ✅ NEW: Validate that this is actually a skin image
-        logger.info("🔍 Validating uploaded image...")
-        validation = validate_skin_image(image_path)
-
-        if not validation['is_skin_image']:
-            logger.warning(f"⚠️ Invalid image type: {validation['reason']}")
-            return {
-                'success': False,
-                'error': validation['reason'],
-                'error_type': 'invalid_image_type'
-            }
-
-        logger.info("✅ Image validation passed")
-        
-        # Load image
-        img = Image.open(image_path)
-        
-        # Create conditions list
-        conditions_list = "\n".join([f"{i+1}. {condition}" for i, condition in enumerate(SERVVIA_SKIN_CONDITIONS)])
-        
-        # ULTRA-ENHANCED PROMPT - Emphasize Heat Rash characteristics
-        prompt = f"""You are an expert dermatologist AI.  Analyze this skin image with EXTREME precision for Heat Rash vs Hives differentiation.
+def _build_skin_prompt() -> str:
+    """Build the shared dermatology prompt used by both Gemini and Azure."""
+    conditions_list = "\n".join(
+        f"{i+1}. {c}" for i, c in enumerate(SERVVIA_SKIN_CONDITIONS)
+    )
+    return f"""You are an expert dermatologist AI. Analyze this skin image with precision.
 
 **STRICT REQUIREMENT:** Select ONLY from this exact list:
 
 {conditions_list}
 
-**🚨 CRITICAL: HEAT RASH vs HIVES - READ CAREFULLY 🚨**
+**CRITICAL VISUAL DIFFERENTIATION GUIDE:**
 
+**HEAT RASH vs HIVES:**
 - Heat Rash: Extremely tiny (1mm), 100+ uniform dots, looks like fine sandpaper
 - Hives: Visible raised welts (5-20mm), 10-40 bumps, individual welts are distinguishable
-
-**CRITICAL:** Only diagnose Heat Rash if bumps are IMPOSSIBLY SMALL (like grains of sand) and IMPOSSIBLY NUMEROUS (100+). 
-If you can clearly see and distinguish individual raised bumps → Default to HIVES. 
-
-**OTHER CONDITIONS:**
-
-**CRITICAL VISUAL DIFFERENTIATION GUIDE:**
+- Only diagnose Heat Rash if bumps are impossibly small and impossibly numerous (100+).
+- If you can clearly see and count individual raised bumps → HIVES.
 
 **ATHLETE'S FOOT vs HIVES:**
 
@@ -763,32 +726,26 @@ HIVES (Urticaria) indicators:
 - If only ankles/lower legs affected → Likely MOSQUITO BITES
 - If symmetric and widespread → Likely HIVES
 
-**🚨 CRITICAL: SCALP PSORIASIS vs DANDRUFF (Seborrheic Dermatitis) 🚨**
-
-This is the most commonly confused pair on scalp images. Read carefully before deciding.
+**SCALP PSORIASIS vs DANDRUFF (Seborrheic Dermatitis):**
 
 PSORIASIS (mild forms) — scalp indicators:
-- THICK, RAISED plaques that are STUCK to the scalp (not loose — you cannot blow them off)
+- THICK, RAISED plaques that are STUCK to the scalp
 - Scales are DRY, SILVERY-WHITE, and adherent (crusty, layered, compacted)
-- SHARPLY DEFINED reddish/inflamed border around each plaque — like a clear boundary ring
+- SHARPLY DEFINED reddish/inflamed border around each plaque
 - Plaques often extend BEYOND the hairline onto the forehead, ears, or nape of neck
 - The skin UNDER the scale is red and inflamed
-- Scales sit on TOP of raised thickened skin
 
 DANDRUFF (Seborrheic Dermatitis) — scalp indicators:
-- Fine, LOOSE flakes — white or yellowish — that fall off easily with light touch
+- Fine, LOOSE flakes — white or yellowish — that fall off easily
 - Scalp appears OILY or GREASY underneath
 - NO raised plaques — the scalp skin surface is NOT elevated or thickened
 - NO sharply defined red borders — any redness is diffuse and ill-defined
-- Flakes distributed throughout the scalp, not in distinct patches
-- Flakes are thin and powdery, NOT crusted or compacted
 
 **SCALP KEY DECISION:**
-- Can you see RAISED, STUCK-ON, SILVERY CRUSTY PATCHES with RED BORDERS? → PSORIASIS (mild forms)
-- Do you see LOOSE FLAKES on an OILY scalp with NO raised patches? → Dandruff (Seborrheic Dermatitis)
-- When in doubt on scalp: if there is ANY raised thickening or adherent crust → choose PSORIASIS
+- RAISED, STUCK-ON, SILVERY CRUSTY PATCHES with RED BORDERS? → PSORIASIS (mild forms)
+- LOOSE FLAKES on an OILY scalp with NO raised patches? → Dandruff (Seborrheic Dermatitis)
 
-**ECZEMA vs PSORIASIS (body, non-scalp):**
+**ECZEMA vs PSORIASIS (body):**
 - ECZEMA: Wet/oozing or very dry, DIFFUSE borders, thin fine scales, flexural areas
 - PSORIASIS: Thick adherent silver-white plaques, SHARP red borders, extensor surfaces
 
@@ -796,7 +753,7 @@ DANDRUFF (Seborrheic Dermatitis) — scalp indicators:
 - SHARP GEOMETRIC boundaries matching contact point
 - Often on hands, wrists, face, neck
 
-**ANALYSIS PROTOCOL - FOLLOW IN ORDER:**
+**ANALYSIS PROTOCOL:**
 1. COUNT lesions carefully
 2. MEASURE apparent size
 3. CHECK uniformity
@@ -817,10 +774,10 @@ Provide response in EXACT JSON format:
   "border_type": "sharp/defined OR diffuse/poorly-defined",
   "scale_type": "thick/silvery OR thin/fine OR none",
   "texture": "flat OR barely raised OR prominently raised",
-  "lesion_size_description": "Be SPECIFIC: pinpoint/tiny (1-2mm) OR small (3-5mm) OR large welts (5mm+)",
-  "lesion_count_estimate": "IMPORTANT: MANY (30+) OR MODERATE (10-30) OR FEW (5-10)",
+  "lesion_size_description": "pinpoint/tiny (1-2mm) OR small (3-5mm) OR large welts (5mm+)",
+  "lesion_count_estimate": "MANY (30+) OR MODERATE (10-30) OR FEW (5-10)",
   "pattern_note": "uniform/densely packed OR variable/scattered",
-  "reasoning": "Step-by-step: 1) Counted X lesions 2) Size appears Y mm 3) Uniformity is Z 4) Therefore [condition]"
+  "reasoning": "Step-by-step reasoning"
 }}
 
 **CONFIDENCE SCORING:**
@@ -829,189 +786,229 @@ Provide response in EXACT JSON format:
 - 60-74%: Features match but some ambiguity
 - <60%: Consider "Normal Skin"
 
-
-**FINAL INSTRUCTION:** 
-When choosing between Heat Rash and Hives:
-- Can you see and count individual bumps? → HIVES
-- Does it look like uniform fine sandpaper texture with 100+ tiny dots? → HEAT RASH
-- Default to HIVES unless CERTAIN it's Heat Rash
+Analyze this image now:"""
 
 
-Analyze this image now - PAY SPECIAL ATTENTION TO LESION COUNT AND SIZE:"""
+# ─── Shared response parsing / building ───────────────────────────────────────
 
-        logger.info(f"🔬 Stage 1: Analyzing with ServVia AI (AGGRESSIVE Heat Rash detection)...")
-        
-        # Generate response
+def _parse_ai_json(response_text: str) -> dict:
+    """Extract JSON object from an AI response that may contain markdown fences."""
+    text = response_text.strip()
+    if '```json' in text:
+        text = text.split('```json')[1].split('```')[0].strip()
+    elif '```' in text:
+        text = text.split('```')[1].split('```')[0].strip()
+    elif '{' in text and '}' in text:
+        start = text.find('{')
+        end = text.rfind('}') + 1
+        text = text[start:end]
+    return json.loads(text)
+
+
+def _build_skin_response(result: dict, image_path: str, analyzed_by: str) -> dict:
+    """Turn parsed AI JSON into the standard ServVia skin-analysis response dict."""
+    detected_condition = result.get('condition', 'Unknown')
+    confidence = result.get('confidence', 0)
+    severity_from_ai = result.get('severity', 'unknown').lower()
+
+    # Stage 2: Measure physical features (informational metadata)
+    measured_features = measure_lesion_features(image_path)
+    logger.info(
+        f"   Lesion metrics: {measured_features.get('num_lesions', 0)} lesions, "
+        f"{measured_features.get('avg_size_mm', 0):.1f}mm avg "
+        f"({measured_features.get('size_category', 'unknown')})"
+    )
+
+    logger.info(f"✅ Final diagnosis: {detected_condition} ({confidence}% confidence)")
+
+    urgency_note = ""
+
+    # Low confidence guard
+    if detected_condition.lower() != 'normal skin' and confidence < 70:
+        logger.warning(f"⚠️ Low confidence ({confidence}%), suggesting normal skin")
+        detected_condition = 'Normal Skin'
+        confidence = 60
+        severity_from_ai = 'normal'
+        urgency_note = f"⚠️ The AI had low confidence ({confidence}%) in detecting a specific condition."
+
+    remedies = CONDITION_REMEDIES.get(detected_condition, [
+        "Consult a healthcare professional for accurate diagnosis",
+        "Maintain good hygiene",
+        "Keep affected area clean and dry"
+    ])
+
+    severity_map = {
+        'severe':   ('Severe',   'High',     '⚠️ **URGENT:** This condition requires immediate medical attention.'),
+        'moderate': ('Moderate', 'Moderate',  '💡 Try home remedies, but consult a doctor if symptoms persist.'),
+        'mild':     ('Mild',     'Low',       '✅ This can typically be managed with home remedies.'),
+        'normal':   ('Normal',   'None',      '✅ Your skin appears healthy.'),
+    }
+    severity, urgency, default_note = severity_map.get(
+        severity_from_ai, ('Mild', 'Low', '✅ Try home remedies and monitor progress.')
+    )
+    if not urgency_note:
+        urgency_note = default_note
+
+    return {
+        'success': True,
+        'disease': detected_condition,
+        'confidence': 'Very High' if confidence > 90 else 'High' if confidence > 75 else 'Moderate' if confidence > 60 else 'Low',
+        'confidence_score': confidence / 100,
+        'severity': severity,
+        'urgency': urgency,
+        'description': result.get('description', ''),
+        'key_features': result.get('key_features', []),
+        'affected_area': result.get('affected_area', 'Not specified'),
+        'differential_diagnosis': result.get('differential_diagnosis', []),
+        'distinguishing_features': result.get('distinguishing_features', ''),
+        'visual_analysis': {
+            'border_type': result.get('border_type', ''),
+            'scale_type': result.get('scale_type', ''),
+            'texture': result.get('texture', ''),
+            'lesion_size': result.get('lesion_size_description', ''),
+            'lesion_count': result.get('lesion_count_estimate', '')
+        },
+        'measurements': {
+            'num_lesions': measured_features.get('num_lesions', 0),
+            'avg_size_mm': measured_features.get('avg_size_mm', 0),
+            'size_category': measured_features.get('size_category', 'unknown'),
+            'uniformity': measured_features.get('size_uniformity', 0)
+        },
+        'reasoning': result.get('reasoning', ''),
+        'recommendations': remedies,
+        'urgency_note': urgency_note,
+        'analyzed_by': analyzed_by,
+    }
+
+
+# ─── Gemini Cloud Analysis ────────────────────────────────────────────────────
+
+def _is_rate_limit_error(exc: Exception) -> bool:
+    """Return True if the exception indicates a Gemini 429 / quota error."""
+    msg = str(exc).lower()
+    return any(kw in msg for kw in ['429', 'rate limit', 'quota', 'resource exhausted', 'too many requests'])
+
+
+def detect_skin_disease_gemini(image_path: str) -> dict:
+    """
+    Analyze skin image using Gemini 3 Flash.
+    On rate-limit (429), silently falls back to Azure OpenAI GPT-4.1-mini.
+    """
+    if not GEMINI_AVAILABLE:
+        logger.warning("[CLOUD] Gemini unavailable, trying Azure fallback")
+        return detect_skin_disease_azure(image_path)
+
+    try:
+        api_key = os.getenv('GEMINI_API_KEY') or os.getenv('GOOGLE_API_KEY')
+        if not api_key:
+            from django.conf import settings
+            api_key = getattr(settings, 'GEMINI_API_KEY', None)
+        if not api_key:
+            logger.warning("[CLOUD] No Gemini API key, trying Azure fallback")
+            return detect_skin_disease_azure(image_path)
+
+        client = genai.Client(api_key=api_key)
+        img = Image.open(image_path)
+        prompt = _build_skin_prompt()
+
+        logger.info("🔬 Analyzing with Gemini Cloud AI...")
+        t0 = time.time()
+
         response = client.models.generate_content(
             model='gemini-3-flash-preview',
             contents=[prompt, img],
         )
-        response_text = response.text. strip()
-        
-        logger.info(f"📝 ServVia AI response received")
-        
-        # Parse JSON
-        try:
-            if '```json' in response_text:
-                json_text = response_text.split('```json')[1].split('```')[0].strip()
-            elif '```' in response_text:
-                json_text = response_text.split('```')[1]. split('```')[0].strip()
-            elif '{' in response_text and '}' in response_text:
-                start = response_text.find('{')
-                end = response_text.rfind('}') + 1
-                json_text = response_text[start:end]
-            else:
-                json_text = response_text
-            
-            result = json.loads(json_text)
-            
-        except json.JSONDecodeError as e:
-            logger.error(f"❌ Failed to parse JSON: {e}")
-            return {
-                'success': False,
-                'error': f'Failed to parse AI response: {e}'
-            }
-        
-        # Extract detected condition
-        detected_condition = result.get('condition', 'Unknown')
-        confidence = result.get('confidence', 0)
-        severity_from_gemini = result.get('severity', 'unknown'). lower()
-        
-        logger.info(f"   AI initial diagnosis: {detected_condition} ({confidence}%)")
-        
-        # Stage 2: Measure physical features
-        logger.info("🔬 Stage 2: Measuring lesion features...")
-        measured_features = measure_lesion_features(image_path)
-        
-        logger.info(f"   Measured: {measured_features. get('num_lesions', 0)} lesions")
-        logger. info(f"   Average size: {measured_features.get('avg_size_mm', 0):.1f}mm ({measured_features.get('size_category', 'unknown')})")
-        logger.info(f"   Uniformity: {measured_features.get('size_uniformity', 0):.2f}")
-        
-        # Stage 3: Apply AGGRESSIVE differential diagnosis rules
-        logger.info("🔬 Stage 3: Applying AGGRESSIVE differential diagnosis rules...")
-        refined_diagnosis = apply_differential_diagnosis_rules(result, measured_features)
-        
-        if refined_diagnosis. get('differential_note'):
-            logger.warning(f"⚠️ Diagnosis refined: {refined_diagnosis. get('differential_note')}")
-            detected_condition = refined_diagnosis.get('condition', detected_condition)
-            confidence = refined_diagnosis.get('confidence', confidence)
-            
-            # Add reasoning override
-            if refined_diagnosis.get('reasoning_override'):
-                result['reasoning'] = refined_diagnosis['reasoning_override'] + '\n\nOriginal AI reasoning: ' + result. get('reasoning', '')
-        
-        # Enhanced logging
-        logger.info(f"✅ Final diagnosis: {detected_condition} ({confidence}% confidence)")
-        
-        urgency_note = ""
+        response_text = response.text.strip()
 
-        # If low confidence, suggest normal skin
-        if detected_condition. lower() != 'normal skin' and confidence < 70:
-            logger.warning(f"⚠️ Low confidence ({confidence}%), suggesting normal skin")
-            detected_condition = 'Normal Skin'
-            confidence = 60
-            severity_from_gemini = 'normal'
-            urgency_note = f"⚠️ The AI had low confidence ({confidence}%) in detecting a specific condition."
+        elapsed = time.time() - t0
+        logger.info(f"📝 Gemini response received in {elapsed:.1f}s")
 
-        # Get remedies
-        remedies = CONDITION_REMEDIES.get(detected_condition, [
-            "Consult a healthcare professional for accurate diagnosis",
-            "Maintain good hygiene",
-            "Keep affected area clean and dry"
-        ])
+        result = _parse_ai_json(response_text)
+        logger.info(f"   Gemini diagnosis: {result.get('condition', '?')} ({result.get('confidence', '?')}%)")
 
-        # Severity determination
-        if severity_from_gemini == 'severe':
-            severity = 'Severe'
-            urgency = 'High'
-            urgency_note = '⚠️ **URGENT:** This condition requires immediate medical attention.'
-        elif severity_from_gemini == 'moderate':
-            severity = 'Moderate'
-            urgency = 'Moderate'
-            urgency_note = '💡 Try home remedies, but consult a doctor if symptoms persist.'
-        elif severity_from_gemini == 'mild':
-            severity = 'Mild'
-            urgency = 'Low'
-            urgency_note = '✅ This can typically be managed with home remedies.'
-        elif severity_from_gemini == 'normal':
-            severity = 'Normal'
-            urgency = 'None'
-            urgency_note = '✅ Your skin appears healthy.'
-        else:
-            severity = 'Mild'
-            urgency = 'Low'
-            urgency_note = '✅ Try home remedies and monitor progress.'
-        
-        # Build response
-        return {
-            'success': True,
-            'disease': detected_condition,
-            'confidence': 'Very High' if confidence > 90 else 'High' if confidence > 75 else 'Moderate' if confidence > 60 else 'Low',
-            'confidence_score': confidence / 100,
-            'severity': severity,
-            'urgency': urgency,
-            'description': result.get('description', ''),
-            'key_features': result.get('key_features', []),
-            'affected_area': result.get('affected_area', 'Not specified'),
-            'differential_diagnosis': result.get('differential_diagnosis', []),
-            'distinguishing_features': result.get('distinguishing_features', ''),
-            'visual_analysis': {
-                'border_type': result.get('border_type', ''),
-                'scale_type': result.get('scale_type', ''),
-                'texture': result.get('texture', ''),
-                'lesion_size': result.get('lesion_size_description', ''),
-                'lesion_count': result.get('lesion_count_estimate', '')
-            },
-            'measurements': {
-                'num_lesions': measured_features.get('num_lesions', 0),
-                'avg_size_mm': measured_features.get('avg_size_mm', 0),
-                'size_category': measured_features. get('size_category', 'unknown'),
-                'uniformity': measured_features.get('size_uniformity', 0)
-            },
-            'reasoning': result.get('reasoning', ''),
-            'recommendations': remedies,
-            'urgency_note': urgency_note,
-            'accuracy': '95%+ (AGGRESSIVE Heat Rash Fix)',
-            'timestamp': '2025-12-08',
-            'analyzed_by': 'servvia-enhanced-v2'
-        }
-        
+        return _build_skin_response(result, image_path, analyzed_by='gemini-3-flash')
+
+    except json.JSONDecodeError as e:
+        logger.error(f"❌ Failed to parse Gemini JSON: {e}")
+        return {'success': False, 'error': f'Failed to parse AI response: {e}'}
+
     except Exception as e:
-        logger.error(f"❌ Detection error: {e}", exc_info=True)
-        return {
-            'success': False,
-            'error': str(e)
-        }
+        if _is_rate_limit_error(e):
+            logger.warning(f"⚠️ Gemini rate-limited: {e} — falling back to Azure")
+            return detect_skin_disease_azure(image_path)
+        logger.error(f"❌ Gemini error: {e}", exc_info=True)
+        return {'success': False, 'error': str(e)}
 
 
-def detect_skin_disease_multi(image_path: str, method: str = 'gemini'):
-    """Multi-method skin disease detection"""
-    logger.info(f"🔬 Starting detection with method: {method}")
-    
-    if method in ['gemini', 'auto']:
-        result = detect_skin_disease_gemini(image_path)
-        
-        if result. get('success'):
-            logger. info(f"✅ Detection successful: {result.get('disease')}")
-        else:
-            logger.error(f"❌ Detection failed: {result.get('error')}")
-        
-        return result
-    
-    return {
-        'success': False,
-        'error': f'Unknown method: {method}. Use "gemini" or "auto"'
-    }
+# ─── Azure OpenAI Fallback Analysis ──────────────────────────────────────────
+
+def detect_skin_disease_azure(image_path: str) -> dict:
+    """
+    Analyze skin image using Azure OpenAI GPT-4.1-mini (vision).
+    Used as silent fallback when Gemini hits rate limits.
+    """
+    client = _get_azure_client()
+    if not client:
+        return {'success': False, 'error': 'Both Gemini and Azure AI are unavailable.'}
+
+    try:
+        from django_core.config import Config
+        model = Config.MODEL_CHAT  # gpt-4.1-mini
+
+        # Encode image as base64 data URI
+        with open(image_path, 'rb') as f:
+            img_b64 = base64.b64encode(f.read()).decode()
+        data_uri = f"data:image/jpeg;base64,{img_b64}"
+
+        prompt = _build_skin_prompt()
+
+        logger.info(f"🔬 Analyzing with Azure OpenAI ({model})...")
+        t0 = time.time()
+
+        response = client.chat.completions.create(
+            model=model,
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": prompt},
+                        {"type": "image_url", "image_url": {"url": data_uri, "detail": "high"}},
+                    ],
+                }
+            ],
+            temperature=0.1,
+            max_tokens=1500,
+        )
+        response_text = response.choices[0].message.content.strip()
+
+        elapsed = time.time() - t0
+        logger.info(f"📝 Azure response received in {elapsed:.1f}s")
+
+        result = _parse_ai_json(response_text)
+        logger.info(f"   Azure diagnosis: {result.get('condition', '?')} ({result.get('confidence', '?')}%)")
+
+        return _build_skin_response(result, image_path, analyzed_by=f'azure-{model}')
+
+    except json.JSONDecodeError as e:
+        logger.error(f"❌ Failed to parse Azure JSON: {e}")
+        return {'success': False, 'error': f'Failed to parse AI response: {e}'}
+
+    except Exception as e:
+        logger.error(f"❌ Azure error: {e}", exc_info=True)
+        return {'success': False, 'error': str(e)}
 
 
 class SkinDiseaseDetector:
     """Django-compatible wrapper"""
 
     def __init__(self):
-        if not GEMINI_AVAILABLE:
-            logger.warning("⚠️ SkinDiseaseDetector: google-genai not available. Install: pip install google-genai")
+        azure_ok = _get_azure_client() is not None
+        if GEMINI_AVAILABLE:
+            logger.info(f"✅ SkinDiseaseDetector initialized — Gemini: ready, Azure fallback: {'ready' if azure_ok else 'unavailable'}")
+        elif azure_ok:
+            logger.warning("⚠️ SkinDiseaseDetector: Gemini unavailable, Azure fallback: ready")
         else:
-            logger.info("✅ SkinDiseaseDetector initialized with ServVia AI")
+            logger.error("❌ SkinDiseaseDetector: no AI backends available")
 
     def predict(self, image_file):
         """Predict from Django uploaded file"""

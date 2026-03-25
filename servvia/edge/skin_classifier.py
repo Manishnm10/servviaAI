@@ -10,8 +10,7 @@ Model: moondream (1.8B, vision-native, ~1.7 GB)
 Pipeline position:
     [Image Upload] -> [Local Validation] -> ** THIS CLASSIFIER ** -> Structured JSON
 
-Fallback:
-    If edge confidence < threshold OR timeout → Gemini cloud fallback
+Returns None if analysis fails — caller decides how to handle (no automatic fallback).
 """
 
 import base64
@@ -228,7 +227,7 @@ def classify_skin_image(image_path: str) -> Optional[Dict]:
     # ── D2C Step 1: Extract visual features ──────────────────────────────────
     features = _extract_visual_features(image_b64, model)
     if not features:
-        logger.warning("[EDGE] Feature extraction returned nothing — falling back to cloud")
+        logger.warning("[EDGE] Feature extraction returned nothing")
         return None
 
     elapsed_desc = time.time() - start_time
@@ -354,12 +353,12 @@ def _extract_visual_features(image_b64: str, model: str) -> Optional[Dict]:
         content = resp.json().get("message", {}).get("content", "").strip()
         word_count = len(content.split())
         if not content or word_count < 20:
-            logger.warning(f"[EDGE] Moondream description too short ({word_count} words) — falling back to cloud")
+            logger.warning(f"[EDGE] Moondream description too short ({word_count} words)")
             return None
         logger.info(f"[EDGE] Moondream description: {content}")
         return _parse_narrative_features(content)
     except httpx.TimeoutException:
-        logger.warning("[EDGE] Moondream timeout — falling back to cloud")
+        logger.warning("[EDGE] Moondream timeout")
         return None
     except Exception as e:
         logger.error(f"[EDGE] Feature extraction error: {e}", exc_info=True)
@@ -790,7 +789,7 @@ def _parse_edge_response(raw_content: str) -> Optional[Dict]:
                 elif condition:
                     logger.warning(
                         f"[EDGE] Rejected invalid condition from model: '{condition}' "
-                        f"— not in SKIN_CONDITIONS, falling back to cloud"
+                        f"— not in SKIN_CONDITIONS"
                     )
                     return None
             except json.JSONDecodeError:

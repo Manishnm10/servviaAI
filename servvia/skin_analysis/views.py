@@ -10,7 +10,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from .models import SkinAnalysis
 from .disease_detector import SkinDiseaseDetector, detect_skin_disease_gemini, validate_skin_image
-from edge.skin_classifier import classify_skin_image, edge_result_to_gemini_format, is_ollama_available
+from edge.skin_classifier import classify_skin_image, edge_result_to_gemini_format
 import logging
 import tempfile
 import os
@@ -73,23 +73,36 @@ def analyze_skin_image(request):
                 'suggestion': 'Please upload a clear photograph of the affected skin area.'
             }, status=status.HTTP_400_BAD_REQUEST)
 
-        # ── Primary: Edge AI (Qwen3.5-2B via Ollama) ──
+        # ── Determine analysis mode (edge or cloud) ──
+        analysis_mode = request.data.get('analysis_mode', 'edge').strip().lower()
         result = None
-        edge_used = False
-        edge_raw = classify_skin_image(temp_path)
-        if edge_raw is not None:
-            result = edge_result_to_gemini_format(edge_raw)
-            if result is not None:
-                edge_used = True
-                logger.info(f"[EDGE] Skin analysis via Moondream2: {result['disease']} ({edge_raw['confidence']}%) in {edge_raw.get('edge_inference_time', '?')}s")
 
-        # ── Fallback: Gemini (cloud) ──
-        if result is None:
-            if edge_raw is not None:
-                logger.info(f"[FALLBACK] Edge confidence too low ({edge_raw.get('confidence', 0)}%), using Gemini")
-            else:
-                logger.info("[FALLBACK] Edge unavailable, using Gemini")
+        if analysis_mode == 'cloud':
+            # ── Cloud-only: bypass Edge entirely ──
+            logger.info("[CLOUD] User selected Cloud AI — routing directly to Gemini")
             result = detect_skin_disease_gemini(temp_path)
+        else:
+            # ── Edge-only: no fallback to cloud ──
+            logger.info("[EDGE] User selected Edge AI — strict local processing")
+            edge_raw = classify_skin_image(temp_path)
+            if edge_raw is not None:
+                result = edge_result_to_gemini_format(edge_raw)
+                if result is not None:
+                    logger.info(f"[EDGE] Skin analysis via Moondream2: {result['disease']} ({edge_raw['confidence']}%) in {edge_raw.get('edge_inference_time', '?')}s")
+
+            if result is None:
+                # Edge failed or low confidence — return error instead of falling back
+                if temp_path and os.path.exists(temp_path):
+                    try:
+                        os.unlink(temp_path)
+                    except:
+                        pass
+                error_detail = "Edge AI returned low confidence" if edge_raw else "Edge AI is unavailable (Ollama not running)"
+                return Response({
+                    'success': False,
+                    'error': f'{error_detail}. You can retry with Cloud AI for better accuracy.',
+                    'error_code': 'EDGE_UNAVAILABLE'
+                }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
         # Clean up temp file
         if temp_path and os.path.exists(temp_path):
@@ -640,6 +653,7 @@ def stream_skin_analysis_view(request):
 
     email = request.POST.get("email_id", "").strip()
     image_file = request.FILES.get("image")
+    analysis_mode = request.POST.get("analysis_mode", "edge").strip().lower()
 
     if not email or not image_file:
         return StreamingHttpResponse(
@@ -680,11 +694,19 @@ def stream_skin_analysis_view(request):
                 event_q.put(("error", {"message": validation['reason']}))
                 return
 
-            # ── Stage 3: Edge AI Analysis (primary) ──
+            # ── Stage 3: Analysis (strict mode routing) ──
             result = None
-            edge_raw = None
 
-            if is_ollama_available():
+            if analysis_mode == 'cloud':
+                # ── Cloud-only: bypass Edge entirely ──
+                event_q.put(("stage", {
+                    "id": "analysis",
+                    "label": "Analyzing with Cloud AI...",
+                    "icon": "fa-cloud",
+                }))
+                result = detect_skin_disease_gemini(temp_path)
+            else:
+                # ── Edge-only: no fallback ──
                 event_q.put(("stage", {
                     "id": "analysis",
                     "label": "Analyzing with Edge AI...",
@@ -696,15 +718,10 @@ def stream_skin_analysis_view(request):
                     if result is not None:
                         logger.info(f"[EDGE] Stream: {result['disease']} ({edge_raw['confidence']}%)")
 
-            # ── Stage 3b: Gemini fallback (cloud) ──
-            if result is None:
-                reason = "low confidence" if edge_raw else "Edge AI unavailable"
-                event_q.put(("stage", {
-                    "id": "analysis",
-                    "label": f"Analyzing with Cloud AI ({reason})...",
-                    "icon": "fa-cloud",
-                }))
-                result = detect_skin_disease_gemini(temp_path)
+                if result is None:
+                    error_detail = "Edge AI returned low confidence" if edge_raw else "Edge AI is unavailable (Ollama not running)"
+                    event_q.put(("error", {"message": f"{error_detail}. You can retry with Cloud AI for better accuracy."}))
+                    return
 
             # Clean up temp file
             if temp_path and os.path.exists(temp_path):

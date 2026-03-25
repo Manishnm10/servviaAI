@@ -42,3 +42,4 @@ CLAUDE.md
 
 # Test files
 servvia/skin_analysis/test/
+servvia/test_synonym_safety.py
