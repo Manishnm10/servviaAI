@@ -163,6 +163,7 @@ class ConversationManager:
     def __init__(self):
         """Initialize the conversation manager"""
         self._memory_store: Dict[str, Dict] = {}
+        self._active_sessions: Dict[str, str] = {}
         logger.info(f"ConversationManager initialized (cache={'enabled' if CACHE_AVAILABLE else 'disabled'})")
     
     # =========================================================================
@@ -170,10 +171,20 @@ class ConversationManager:
     # =========================================================================
     
     def _get_cache_key(self, user_id: str, key_type: str) -> str:
-        """Generate a cache key for user data"""
+        """Generate a cache key for user data, scoped to session if set."""
         # Hash email for privacy in cache keys
         user_hash = hashlib.md5(user_id.encode()).hexdigest()[:12]
+        session = self._active_sessions.get(user_id, "")
+        if session:
+            return f"servvia_v2_{user_hash}_{session[:8]}_{key_type}"
         return f"servvia_v2_{user_hash}_{key_type}"
+
+    def set_session(self, user_id: str, session_id: str):
+        """Set the active session for a user. New session = fresh conversation."""
+        current = self._active_sessions.get(user_id)
+        if current != session_id:
+            self._active_sessions[user_id] = session_id
+            logger.info(f"New session for {user_id[:20]}...: {session_id[:8]}")
     
     def _get_data(self, user_id: str, key_type: str) -> Dict:
         """Get data from cache or memory"""
@@ -266,17 +277,25 @@ class ConversationManager:
         recent = messages[-max_messages:]
         
         lines = []
-        for msg in recent:
+        for i, msg in enumerate(recent):
             role = "User" if msg['role'] == 'user' else "ServVia"
             content = msg['content']
-            
-            # Truncate very long messages
-            if len(content) > 500:
-                content = content[:500] + "..."
-            
+
+            # Keep the last 2 messages (most recent exchange) at higher detail
+            # since the user is most likely responding to them
+            is_recent = (i >= len(recent) - 2)
+            max_len = 1200 if is_recent else 400
+
+            if len(content) > max_len:
+                # For assistant messages, keep the END (where questions/offers are)
+                if msg['role'] == 'assistant' and is_recent:
+                    content = "..." + content[-(max_len):]
+                else:
+                    content = content[:max_len] + "..."
+
             lines.append(f"{role}: {content}")
-        
-        return "\n". join(lines)
+
+        return "\n".join(lines)
     
     # =========================================================================
     # CONTEXT MANAGEMENT

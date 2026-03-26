@@ -240,11 +240,20 @@ def stream_lab_report_view(request):
         )
 
     email = request.POST.get("email_id", "").strip()
+    session_id = request.POST.get("session_id", "").strip()
     report_files = request.FILES.getlist("report")
     if not report_files:
         single_file = request.FILES.get("report")
         if single_file:
             report_files = [single_file]
+
+    # Set session scope so lab results land in the right conversation session
+    if email and session_id:
+        try:
+            from core_temporal.conversation.manager import conversation_manager
+            conversation_manager.set_session(email, session_id)
+        except Exception:
+            pass
 
     if not email or not report_files:
         return StreamingHttpResponse(
@@ -307,6 +316,44 @@ def stream_lab_report_view(request):
                 abnormal_values=result.get("biomarkers", []),
             )
 
+            # -- Inject lab results into conversation context --
+            try:
+                from core_temporal.conversation.manager import conversation_manager
+                # Build a concise lab context for conversation memory
+                abnormal_count = result.get("abnormal_count", 0)
+                normal_count = result.get("normal_count", 0)
+                biomarkers = result.get("biomarkers", [])
+                abnormal_names = [
+                    b.get("name", "") for b in biomarkers
+                    if b.get("status", "").lower() != "normal"
+                ] if isinstance(biomarkers, list) else []
+
+                lab_context_msg = (
+                    f"[LAB REPORT ANALYZED — {result.get('report_type', 'Lab Report')}]\n"
+                    f"Parameters: {abnormal_count + normal_count} tested | "
+                    f"{normal_count} normal | {abnormal_count} abnormal\n"
+                )
+                if abnormal_names:
+                    lab_context_msg += f"Abnormal: {', '.join(abnormal_names)}\n"
+                lab_context_msg += f"Urgency: {result.get('urgency_level', 'routine')}\n"
+                lab_context_msg += f"Recommendation: {result.get('recommendation', 'Consult physician')}"
+
+                conversation_manager.add_message(
+                    email, 'user', f"[User uploaded a lab report for analysis]",
+                    metadata={"type": "lab_upload"}
+                )
+                conversation_manager.add_message(
+                    email, 'assistant', lab_context_msg,
+                    metadata={
+                        "type": "lab_analysis",
+                        "report_id": lab_report.id,
+                        "abnormal_values": abnormal_names,
+                    }
+                )
+                logger.info(f"Lab results saved to conversation context for {email}")
+            except Exception as e:
+                logger.warning(f"Failed to save lab context to conversation: {e}")
+
             # -- Stream formatted summary word-by-word --
             event_q.put(("stage", {
                 "id": "streaming",
@@ -364,37 +411,20 @@ def stream_lab_report_view(request):
                 yield _sse("error", data)
                 break
             elif event_type == "stream_summary":
-                # Smooth word-by-word streaming with natural pacing
+                # Word-by-word streaming — matches chat pattern exactly
                 words = data.split(" ")
                 word_count = len(words)
-                # Adaptive speed: shorter reports feel natural, longer ones move faster
-                if word_count < 200:
-                    base_delay = 0.018
-                elif word_count < 400:
-                    base_delay = 0.010
-                else:
-                    base_delay = 0.005
+                # Adaptive speed: same formula as chat stream
+                base_delay = 0.015 if word_count < 300 else (0.008 if word_count < 700 else 0.004)
 
-                batch = []
                 for i, word in enumerate(words):
-                    batch.append(word)
-                    # Flush batch at punctuation or every 3 words for smooth flow
-                    is_last = (i == word_count - 1)
-                    at_punctuation = word.rstrip().endswith((".", "!", "?", ":", "---"))
-                    at_batch_limit = len(batch) >= 3
-
-                    if is_last or at_punctuation or at_batch_limit:
-                        text = " ".join(batch)
-                        if not is_last:
-                            text += " "
-                        yield _sse("token", {"text": text})
-                        batch = []
-
-                        # Natural pauses at sentence boundaries
-                        if at_punctuation:
-                            _time.sleep(base_delay * 3)
-                        else:
-                            _time.sleep(base_delay)
+                    yield _sse("token", {"text": word + (" " if i < word_count - 1 else "")})
+                    if word.endswith((".", "!", "?", ":")):
+                        _time.sleep(base_delay * 2.5)
+                    elif word.endswith((",", ";", "—")):
+                        _time.sleep(base_delay * 1.5)
+                    else:
+                        _time.sleep(base_delay)
             elif event_type == "done":
                 yield _sse("done", data)
 

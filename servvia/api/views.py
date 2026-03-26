@@ -62,7 +62,11 @@ from core.models import (
     ValidationResult,
 )
 from chronobiology.inference import ChronobiologyEngine
-from neurosymbolic.temporal_validator import TemporalSafetyValidator
+from neurosymbolic.temporal_validator import (
+    TemporalSafetyValidator,
+    HERB_ALIASES,
+    INTERACTION_DATABASE,
+)
 from legacy_healthcare.rag_service.execute_rag import EmergencySystem
 
 # Trust Engine for scientific validation
@@ -74,14 +78,14 @@ except ImportError:
 
 # Graph RAG for outcome-adaptive remedy ranking
 try:
-    from graph_rag.client import KnowledgeGraphClient
+    from graph_rag.client import get_graph_client
     GRAPH_RAG_AVAILABLE = True
 except ImportError:
     GRAPH_RAG_AVAILABLE = False
 
-# Multi-Agent LangGraph verification
+# Multi-Agent verification (serious queries: Diagnostician → Proposer → Critic)
 try:
-    from agents.graph import run_verification_pipeline, run_diagnostician_standalone, run_proposer_only
+    from agents.graph import run_verification_pipeline, run_diagnostician_standalone
     from agents.prompts import FALLBACK_RESPONSE as _AGENT_FALLBACK
     MULTI_AGENT_AVAILABLE = True
 except ImportError as e:
@@ -109,7 +113,7 @@ _TRACE_LOG = os.path.join(
 
 
 def _trace(msg: str):
-    """Write timestamped trace to file AND stdout/stderr."""
+    """Write timestamped trace to file AND stdout."""
     ts = datetime.now().strftime("%H:%M:%S")
     line = f"[{ts}] {msg}"
     # Safe ASCII version for Windows console (cp1252 can't handle Unicode)
@@ -124,11 +128,6 @@ def _trace(msg: str):
     try:
         sys.__stdout__.write(safe_line + "\n")
         sys.__stdout__.flush()
-    except Exception:
-        pass
-    try:
-        sys.__stderr__.write(safe_line + "\n")
-        sys.__stderr__.flush()
     except Exception:
         pass
 
@@ -169,89 +168,388 @@ def _build_medical_profile(email_id: str, profile_data: dict = None) -> UserMedi
 # ═══════════════════════════════════════════════════════════════════════════
 # HELPER: EXTRACT HERBS FROM LLM RESPONSE FOR SAFETY VALIDATION
 # ═══════════════════════════════════════════════════════════════════════════
+#
+# Defense-in-depth extraction:
+#   PRIMARY  — Parse structured <!-- HERBS_USED: ... --> tag from LLM output
+#              (the Proposer prompt mandates this declaration).
+#   FALLBACK — Regex scan with full synonym resolution via HERB_ALIASES
+#              from the temporal validator (same source of truth).
+#   FINAL    — Union of both methods. A herb caught by *either* path
+#              proceeds to the deterministic safety engine.
+#
+# All returned names are CANONICAL (e.g. "curcumin" → "turmeric"), so the
+# INTERACTION_DATABASE always matches.
+# ═══════════════════════════════════════════════════════════════════════════
 
-_HERB_SCAN_LIST = [
-    "ginger", "turmeric", "garlic", "ashwagandha", "chamomile", "valerian",
-    "ginseng", "echinacea", "licorice", "ginkgo", "kava", "peppermint",
-    "st. john's wort", "st john's wort", "tulsi", "neem", "amla",
-    "fenugreek", "cinnamon", "fennel", "cumin", "grapefruit", "honey",
+# ── Build unified scan table at import time ──────────────────────────────
+# Maps every known surface form (alias or canonical name) → canonical name.
+# Sources: HERB_ALIASES from temporal_validator + canonical names from
+#          INTERACTION_DATABASE + additional common herbs.
+
+_ADDITIONAL_CANONICAL_HERBS = [
+    # Herbs in the old scan list that have no INTERACTION_DATABASE entry
+    # and no alias mapping — we still want to detect them.
+    "ginseng", "peppermint", "tulsi", "neem", "amla",
+    "fennel", "cumin", "grapefruit", "honey",
     "aloe vera", "moringa", "triphala", "brahmi", "shatavari",
-    # Extended scan list for better safety coverage
     "eucalyptus", "lavender", "clove", "cardamom", "black pepper",
-    "oregano", "thyme", "rosemary", "saffron", "milk thistle",
-    "dong quai", "black cohosh", "evening primrose", "saw palmetto",
+    "oregano", "thyme", "rosemary", "saffron",
+    "black cohosh", "evening primrose",
     "goldenseal", "marshmallow root", "slippery elm", "dandelion",
     "nettle", "elderberry", "astragalus", "cat's claw", "devil's claw",
-    "green tea", "goji berry", "maca", "rhodiola", "passionflower",
+    "goji berry", "maca", "rhodiola", "passionflower",
     "lemon balm", "jaggery", "coconut oil", "sesame oil", "mustard oil",
     "camphor", "menthol", "ajwain", "carom seeds", "asafoetida",
+    "feverfew", "cranberry", "dong quai",
 ]
 
-_ALLERGEN_SUBSTITUTE_MAP = {
-    "honey":       "jaggery, maple syrup, or agave nectar",
-    "ginger":      "cinnamon or licorice root tea",
-    "turmeric":    "cinnamon or saffron (small amounts)",
-    "garlic":      "onion, leek, or asafoetida (hing)",
-    "cinnamon":    "cardamom or star anise",
-    "chamomile":   "peppermint tea or lemon balm",
-    "peppermint":  "spearmint or fennel tea",
-    "aloe vera":   "cucumber gel or calendula",
-    "neem":        "eucalyptus steam (topical/inhalation only)",
-    "fennel":      "anise or dill seeds",
-    "cumin":       "coriander or caraway",
-    "fenugreek":   "fennel seeds or mustard seeds",
-    "licorice":    "fennel or anise root tea",
-    "amla":        "lemon juice or hibiscus tea",
-    "ashwagandha": "holy basil (tulsi) or shatavari",
-    "tulsi":       "holy basil alternatives or mint tea",
-    "eucalyptus":  "peppermint or camphor steam (diluted)",
-    "lavender":    "chamomile or lemon balm",
-    "clove":       "cinnamon or nutmeg (small amounts)",
-    "black pepper":"white pepper or long pepper (pippali)",
-    "green tea":   "rooibos or white tea",
-    "elderberry":  "vitamin C-rich fruits (amla, citrus)",
-    "camphor":     "menthol balm or eucalyptus oil (diluted)",
-    "mustard oil": "sesame oil or coconut oil",
-    "ajwain":      "cumin or fennel seeds",
-    "asafoetida":  "garlic or onion powder",
-    "milk thistle": "dandelion root tea",
-    "passionflower":"lemon balm or valerian (if no interaction)",
+def _build_synonym_table() -> dict[str, str]:
+    """Build surface-form → canonical-name mapping (once, at import)."""
+    table: dict[str, str] = {}
+
+    # 1. All canonical herb names from the interaction database
+    for canonical in INTERACTION_DATABASE:
+        table[canonical.lower()] = canonical.lower()
+
+    # 2. All aliases from the temporal validator
+    for alias, canonical in HERB_ALIASES.items():
+        table[alias.lower()] = canonical.lower()
+
+    # 3. Additional canonical herbs (identity mapping)
+    for herb in _ADDITIONAL_CANONICAL_HERBS:
+        h = herb.lower()
+        if h not in table:
+            table[h] = h
+
+    return table
+
+# Surface form → canonical name (e.g. "curcumin" → "turmeric")
+_SYNONYM_TABLE: dict[str, str] = _build_synonym_table()
+
+# Pre-compiled regex patterns keyed by surface form, longest-first so
+# "ginkgo biloba" matches before "ginkgo".
+_SCAN_PATTERNS: list[tuple[re.Pattern, str]] = sorted(
+    [
+        (re.compile(r'\b' + re.escape(surface) + r'\b', re.IGNORECASE), canonical)
+        for surface, canonical in _SYNONYM_TABLE.items()
+    ],
+    key=lambda pair: len(pair[0].pattern),
+    reverse=True,  # longest surface forms first
+)
+
+# Primary substitute: the single best swap used for in-text replacement.
+_PRIMARY_SUBSTITUTE = {
+    "honey":        "jaggery",
+    "ginger":       "cinnamon",
+    "turmeric":     "saffron",
+    "garlic":       "asafoetida (hing)",
+    "cinnamon":     "cardamom",
+    "chamomile":    "peppermint",
+    "peppermint":   "spearmint",
+    "aloe vera":    "cucumber gel",
+    "neem":         "tea tree oil (diluted)",
+    "fennel":       "anise",
+    "cumin":        "coriander",
+    "fenugreek":    "fennel",
+    "licorice":     "fennel",
+    "amla":         "lemon",
+    "ashwagandha":  "holy basil (tulsi)",
+    "tulsi":        "peppermint",
+    "eucalyptus":   "peppermint",
+    "lavender":     "lemon balm",
+    "clove":        "cardamom",
+    "black pepper": "white pepper",
+    "green tea":    "rooibos",
+    "elderberry":   "rose hip",
+    "camphor":      "menthol",
+    "mustard oil":  "sesame oil",
+    "ajwain":       "cumin",
+    "asafoetida":   "garlic",
+    "milk thistle": "dandelion root",
+    "passionflower":"lemon balm",
+    "feverfew":     "peppermint oil",
+    "dong quai":    "shatavari",
+    "cranberry":    "blueberry",
+    "saw palmetto": "pumpkin seed oil",
+    "ginkgo":       "brahmi",
+    "st. john's wort": "lemon balm",
+    "kava":         "valerian",
 }
+
+# Full alternatives list shown in the Ingredient Alert summary.
+_ALLERGEN_SUBSTITUTE_MAP = {
+    "honey":       "jaggery, maple syrup, agave nectar, or date syrup",
+    "ginger":      "cinnamon, licorice root, warm lemon water with black pepper, or cardamom",
+    "turmeric":    "saffron (small amounts), cinnamon, black pepper in warm milk, or rosemary",
+    "garlic":      "asafoetida (hing), onion, leek, or chives",
+    "cinnamon":    "cardamom, star anise, nutmeg (small amounts), or vanilla",
+    "chamomile":   "peppermint, lemon balm, lavender tea, or rooibos",
+    "peppermint":  "spearmint, fennel tea, lemon balm, or holy basil (tulsi)",
+    "aloe vera":   "cucumber gel, calendula, or coconut oil (topical)",
+    "neem":        "tea tree oil (diluted), eucalyptus steam, or turmeric paste",
+    "fennel":      "anise seeds, dill seeds, or caraway",
+    "cumin":       "coriander, caraway, or fennel seeds",
+    "fenugreek":   "fennel seeds, mustard seeds, or cumin",
+    "licorice":    "fennel tea, anise root tea, or marshmallow root",
+    "amla":        "lemon juice, hibiscus tea, or vitamin C-rich fruits",
+    "ashwagandha": "holy basil (tulsi), shatavari, or brahmi",
+    "tulsi":       "peppermint, lemon balm, or oregano",
+    "eucalyptus":  "peppermint steam, camphor steam (diluted), or menthol balm",
+    "lavender":    "lemon balm, chamomile, or valerian",
+    "clove":       "cardamom, cinnamon, or nutmeg (small amounts)",
+    "black pepper":"white pepper, long pepper (pippali), or cayenne (small amounts)",
+    "green tea":   "rooibos, white tea, or hibiscus tea",
+    "elderberry":  "rose hip tea, vitamin C-rich fruits (amla, citrus), or echinacea",
+    "camphor":     "menthol balm, eucalyptus oil (diluted), or peppermint oil",
+    "mustard oil": "sesame oil, coconut oil, or olive oil",
+    "ajwain":      "cumin seeds, fennel seeds, or caraway seeds",
+    "asafoetida":  "garlic, onion powder, or leek",
+    "milk thistle": "dandelion root tea, artichoke extract, or burdock root",
+    "passionflower":"lemon balm, valerian (if no interaction), or chamomile",
+    "feverfew":    "peppermint oil (topical), butterbur (PA-free), or magnesium supplement",
+    "dong quai":   "shatavari, red raspberry leaf, or vitex (chasteberry)",
+    "cranberry":   "blueberry, pomegranate juice, or vitamin C supplement",
+    "saw palmetto":"pumpkin seed oil, pygeum, or stinging nettle root",
+    "ginkgo":      "brahmi (bacopa), rosemary, or lion's mane mushroom",
+    "st. john's wort": "lemon balm, saffron, or SAMe (under medical supervision)",
+    "kava":        "valerian, passionflower, or lemon balm",
+}
+
+# Lines that are allergy disclaimers — herbs mentioned here should not
+# trigger a safety flag (the LLM is *warning* about them, not prescribing).
+_DISCLAIMER_KW = (
+    'avoid', 'allergic', 'allergy', 'allergen',
+    'contraindicated', 'do not use', 'do not consume',
+)
+
+
+def _extract_herbs_structured(response_text: str) -> set[str]:
+    """PRIMARY: parse the machine-readable herb declaration tag.
+
+    The Proposer LLM is instructed to append:
+        <!-- HERBS_USED: ginger, turmeric, honey -->
+    Returns a set of canonical names, or empty set if tag is absent.
+    """
+    match = re.search(
+        r'<!--\s*HERBS_USED:\s*(.+?)\s*-->',
+        response_text,
+        re.IGNORECASE,
+    )
+    if not match:
+        return set()
+    raw_herbs = [h.strip().lower() for h in match.group(1).split(',') if h.strip()]
+    canonical = set()
+    for h in raw_herbs:
+        canonical.add(_SYNONYM_TABLE.get(h, h))
+    return canonical
+
+
+def _extract_herbs_regex(response_text: str) -> set[str]:
+    """FALLBACK: regex scan with full synonym resolution.
+
+    Filters out disclaimer/warning lines before scanning so herbs
+    mentioned only in "avoid X due to allergy" context are not
+    false-flagged.
+    """
+    lines = response_text.split('\n')
+    filtered = '\n'.join(
+        ln for ln in lines
+        if not any(kw in ln.lower() for kw in _DISCLAIMER_KW)
+    )
+    found: set[str] = set()
+    for pattern, canonical in _SCAN_PATTERNS:
+        if pattern.search(filtered):
+            found.add(canonical)
+    return found
 
 
 def _extract_herbs_from_response(response_text: str) -> list[str]:
+    """Extract herbs via structured tag + regex fallback, return canonical names."""
     if not response_text:
         return []
-    response_lower = response_text.lower()
-    found = []
-    for herb in _HERB_SCAN_LIST:
-        if re.search(r'\b' + re.escape(herb) + r'\b', response_lower):
-            found.append(herb)
-    return found
+    structured = _extract_herbs_structured(response_text)
+    regex = _extract_herbs_regex(response_text)
+    # Union of both — a herb caught by *either* method is validated
+    return list(structured | regex)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
 # HELPER: FORMAT SAFETY BLOCK RESPONSE
 # ═══════════════════════════════════════════════════════════════════════════
 
+def _humanize_safety_reason(herb_name: str, result) -> str:
+    """Convert the raw validator reason into plain-language explanation."""
+    herb = herb_name.title()
+    # Pull the drug name from the result's contraindications or reason
+    reason_raw = result.reason or ""
+
+    # Extract the interacting drug from the reason string
+    # Pattern: 'herb' is contraindicated with 'drug' (class: class_name)
+    drug_match = re.search(
+        r"contraindicated with '([^']+)'", reason_raw, re.IGNORECASE,
+    )
+    drug_name = drug_match.group(1).title() if drug_match else "your medication"
+
+    # Determine the type of interaction for plain-language phrasing
+    reason_lower = reason_raw.lower()
+    if "allergy" in reason_lower or "allergen" in reason_lower:
+        return (
+            f"You have a declared allergy to {herb}. Even small amounts "
+            f"could trigger an allergic reaction, so it has been replaced "
+            f"with a safe alternative."
+        )
+    elif "platelet" in reason_lower or "bleeding" in reason_lower or "anticoagulant" in reason_lower:
+        return (
+            f"{herb} can thin the blood naturally. Since you are taking "
+            f"{drug_name}, which also thins the blood, combining them "
+            f"could increase the risk of bleeding. To keep you safe, "
+            f"we have replaced it with a gentle alternative."
+        )
+    elif "serotonin" in reason_lower:
+        return (
+            f"{herb} affects serotonin levels in the brain. Since you are "
+            f"taking {drug_name}, which also affects serotonin, combining "
+            f"them could cause a dangerous condition called Serotonin "
+            f"Syndrome (symptoms include agitation, rapid heartbeat, and "
+            f"high temperature). We have replaced it with a safe alternative."
+        )
+    elif "liver" in reason_lower or "hepat" in reason_lower:
+        return (
+            f"{herb} is processed by the liver. Since you are taking "
+            f"{drug_name}, which is also processed by the liver, combining "
+            f"them could put extra strain on your liver. We have replaced "
+            f"it with a gentler alternative."
+        )
+    elif "blood sugar" in reason_lower or "hypoglyc" in reason_lower or "glucose" in reason_lower:
+        return (
+            f"{herb} can lower blood sugar naturally. Since you are taking "
+            f"{drug_name}, which also lowers blood sugar, combining them "
+            f"could cause your blood sugar to drop too low. We have replaced "
+            f"it with a safe alternative."
+        )
+    elif "blood pressure" in reason_lower:
+        return (
+            f"{herb} can affect blood pressure. Since you are taking "
+            f"{drug_name}, combining them could cause your blood pressure "
+            f"to fluctuate. We have replaced it with a safe alternative."
+        )
+    elif "immunosuppressant" in reason_lower or "immune" in reason_lower:
+        return (
+            f"{herb} stimulates the immune system. Since you are taking "
+            f"{drug_name} to suppress your immune system (for example, "
+            f"after a transplant or for an autoimmune condition), "
+            f"{herb.lower()} could work against your medication. "
+            f"We have replaced it with a safe alternative."
+        )
+    elif "seizure" in reason_lower:
+        return (
+            f"{herb} may lower the seizure threshold. Since you are taking "
+            f"{drug_name} to prevent seizures, combining them could reduce "
+            f"the effectiveness of your medication. We have replaced it "
+            f"with a safe alternative."
+        )
+    elif "cyp" in reason_lower:
+        # CYP enzyme interactions — explain simply
+        return (
+            f"{herb} can interfere with how your body processes "
+            f"{drug_name}. This could cause {drug_name.lower()} to build "
+            f"up to unsafe levels in your body or become less effective. "
+            f"We have replaced it with a safe alternative."
+        )
+    else:
+        # Generic fallback — still human-readable
+        return (
+            f"{herb} may interact with {drug_name} that you are currently "
+            f"taking. To keep you safe, we have replaced it with a "
+            f"gentle alternative."
+        )
+
+
 def _format_safety_inline_warning(flagged_herbs: list) -> str:
-    lines = ["\u26a0\ufe0f **Ingredient Alert \u2014 Safety Flag**\n"]
+    """Format the Ingredient Alert summary placed after remedies.
+
+    States which herb was substituted, why (in plain language), and
+    lists alternatives.
+    """
+    lines = ["\n---\n", "## \u26a0\ufe0f Ingredient Alert \u2014 Safety Flag\n"]
     for herb_name, result in flagged_herbs:
-        substitute = _ALLERGEN_SUBSTITUTE_MAP.get(herb_name.lower())
-        line = f"\u26d4 **{herb_name.title()}** is flagged for your profile \u2014 {result.reason}"
+        primary = _PRIMARY_SUBSTITUTE.get(herb_name.lower(), "a safe alternative")
+        alternatives = _ALLERGEN_SUBSTITUTE_MAP.get(herb_name.lower(), "")
+        human_reason = _humanize_safety_reason(herb_name, result)
+
+        lines.append(
+            f"\u26d4 **{primary.title()}** was substituted in place of "
+            f"**{herb_name.title()}** \u2014 {human_reason}"
+        )
         if result.washout_days_remaining:
-            line += f" ({result.washout_days_remaining} day washout remaining)"
-        lines.append(line)
-        if substitute:
-            lines.append(f"  \U0001f4a1 *Safe substitute: {substitute}*")
+            lines.append(
+                f"  \u23f3 *Washout period: "
+                f"{result.washout_days_remaining} days remaining*"
+            )
+        if alternatives:
+            lines.append(
+                f"  \U0001f4a1 **Other safe alternatives:** {alternatives}"
+            )
+        lines.append("")  # blank line between entries
 
     lines.append(
-        "\n*Please skip or substitute any flagged ingredient above. "
-        "The remedies below are otherwise safe for your profile.*\n\n"
-        "\U0001f512 *Safety check by ServVia's Neurosymbolic Pharmacovigilance Engine.*\n\n"
-        "---\n"
+        "\U0001f512 *Safety check by ServVia\u2019s "
+        "Neurosymbolic Pharmacovigilance Engine.*"
     )
     return "\n".join(lines) + "\n"
+
+
+def _substitute_flagged_remedies(response: str, flagged_herbs: list) -> str:
+    """Replace flagged herb names with safe substitutes across the entire response.
+
+    Preserves original case of the first letter.
+    """
+    for herb_name, _result in flagged_herbs:
+        primary = _PRIMARY_SUBSTITUTE.get(herb_name.lower())
+        if not primary:
+            continue
+
+        herb_pattern = re.compile(
+            r'\b' + re.escape(herb_name) + r'\b', re.IGNORECASE,
+        )
+
+        def _case_preserving_replace(match, _sub=primary):
+            original = match.group(0)
+            if original[0].isupper():
+                return _sub[0].upper() + _sub[1:]
+            return _sub.lower()
+
+        response = herb_pattern.sub(_case_preserving_replace, response)
+
+    return response
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# HELPER: INSERT BLOCK AFTER REMEDIES (before ER / "See a Doctor" section)
+# ═══════════════════════════════════════════════════════════════════════════
+
+_POST_REMEDY_HEADERS = [
+    "When to Go to the Emergency Room Immediately",
+    "When to Go to the Emergency Room",
+    "When to See a Doctor",
+]
+
+def _insert_after_remedies(response: str, block: str) -> str:
+    """Insert *block* right before the ER / 'See a Doctor' section.
+
+    Falls back to appending at the end if no matching header is found.
+    """
+    for header in _POST_REMEDY_HEADERS:
+        match = re.search(
+            r'(?m)^#{1,3}\s*' + re.escape(header),
+            response,
+            re.IGNORECASE,
+        )
+        if match:
+            pos = match.start()
+            return response[:pos].rstrip() + "\n\n" + block.strip() + "\n\n" + response[pos:]
+    # Fallback: append at end
+    return response + "\n\n" + block
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -288,6 +586,42 @@ def _needs_diagnosis(query_lower: str) -> bool:
     return has_serious_marker or word_count >= 12
 
 
+def _is_conversational_followup(query_lower: str) -> bool:
+    """Detect casual follow-ups that don't need Trust Engine or Safety validation.
+    E.g., 'ok thank you', 'how long will it take', 'yes', 'can I travel'.
+    These are conversational questions, not new symptom reports needing remedy verification."""
+    word_count = len(query_lower.split())
+    # Very short messages (1-3 words) without symptoms are almost always follow-ups
+    _SHORT_AFFIRM = {
+        "yes", "no", "yeah", "yep", "nah", "nope", "ya", "yea",
+        "please", "yes please", "no thanks", "not really",
+        "hmm", "hm", "ah", "oh",
+    }
+    _CASUAL_PATTERNS = [
+        "thank", "thanks", "ok", "okay", "got it", "sure", "alright",
+        "bye", "good", "great", "nice", "cool", "noted", "understood",
+    ]
+    _FOLLOWUP_PATTERNS = [
+        "how long", "how much", "how often", "when should", "when will",
+        "can i", "should i", "is it", "what about", "what if",
+        "will it", "does it", "why", "which one", "tell me more",
+    ]
+    has_symptom = any(m in query_lower for m in _MINOR_SOLO | _SERIOUS_MARKERS)
+    if has_symptom:
+        return False
+    # Short affirmatives are always follow-ups
+    if query_lower.strip().rstrip("!., ") in _SHORT_AFFIRM:
+        return True
+    # Very short messages (1-3 words) are almost always conversational
+    if word_count <= 3 and not has_symptom:
+        return True
+    if any(p in query_lower for p in _CASUAL_PATTERNS) and word_count <= 8:
+        return True
+    if any(p in query_lower for p in _FOLLOWUP_PATTERNS):
+        return True
+    return False
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # ASYNC PIPELINE ORCHESTRATOR — Single event loop for entire request
 # ═══════════════════════════════════════════════════════════════════════════
@@ -316,49 +650,95 @@ async def _run_pipeline(
     _profile = user_profile_data or {}
     query_lower = query_in_english.lower()
     needs_diag = _needs_diagnosis(query_lower)
+    is_followup = _is_conversational_followup(query_lower)
 
-    # ── Step 1: RAG + Diagnostician ──────────────────────────────────────
-    diag_result = {"diagnosis_output": "", "symptom_list": [], "primary_condition": ""}
+    # ── Step 0: Conversation context — history + recent lab results ──────
+    conversation_context = ""
+    try:
+        from core_temporal.conversation.manager import conversation_manager
+        conv_history = conversation_manager.get_formatted_history(email_id, max_messages=8)
+        if conv_history:
+            conversation_context = f"RECENT CONVERSATION:\n{conv_history}\n"
+    except Exception as e:
+        logger.warning(f"Failed to load conversation history: {e}")
+
+    lab_context = ""
+    try:
+        from lab_report.models import LabReport as LR
+        recent_lab = LR.objects.filter(email_id=email_id).order_by('-created_at').first()
+        if recent_lab and recent_lab.summary:
+            # Only include if recent (within last 24 hours of conversation)
+            from django.utils import timezone as _tz
+            from datetime import timedelta as _td
+            if (_tz.now() - recent_lab.created_at) < _td(hours=24):
+                # Build concise lab summary for LLM context
+                analysis = recent_lab.analysis or {}
+                biomarkers = analysis.get("biomarkers", [])
+                abnormal = [
+                    f"{b.get('name', '?')}: {b.get('value', '?')} ({b.get('status', '?')})"
+                    for b in biomarkers
+                    if isinstance(b, dict) and b.get("status", "").lower() != "normal"
+                ]
+                lab_context = "RECENT LAB REPORT RESULTS:\n"
+                lab_context += f"Report type: {analysis.get('report_type', 'Lab Report')}\n"
+                if abnormal:
+                    lab_context += "Abnormal values:\n" + "\n".join(f"  - {a}" for a in abnormal) + "\n"
+                lab_context += f"Recommendation: {analysis.get('recommendation', 'N/A')}\n"
+    except Exception as e:
+        logger.warning(f"Failed to load lab context: {e}")
+
+    # ── Step 1: RAG + Graph RAG in parallel ──────────────────────────────
     rag_context = ""
 
-    if needs_diag and MULTI_AGENT_AVAILABLE:
-        _trace("  [C] SERIOUS path — RAG + Diagnostician in PARALLEL")
+    async def _graph_rag() -> str:
+        """Query Neo4j for outcome-ranked remedies. Returns context string."""
+        if not GRAPH_RAG_AVAILABLE:
+            return ""
+        try:
+            from legacy_healthcare.rag_service.execute_rag import ContextManager
+            entities = ContextManager.extract_entities(query_in_english)
+            symptoms = entities.get("conditions", [])
+            if not symptoms:
+                return ""
 
-        async def _rag():
-            return await execute_rag_pipeline(
-                query_in_english, input_language_detected, email_id,
-                user_name=user_name, message_id=message_id,
-                chat_history=chat_history, user_profile=user_profile_data,
+            _PHASE_MAP = {
+                "early_morning": "morning",
+                "morning_activation": "morning",
+                "late_morning": "morning",
+                "afternoon_peak": "afternoon",
+                "afternoon_slump": "afternoon",
+                "evening_active": "evening",
+                "wind_down": "evening",
+                "deep_sleep": "night",
+            }
+            if bio_context_str:
+                raw_phase = (
+                    bio_context_str.split(",")[0]
+                    .replace("Circadian Phase:", "")
+                    .strip()
+                    .lower()
+                )
+                bio_phase = _PHASE_MAP.get(raw_phase, raw_phase) or "default"
+            else:
+                bio_phase = "default"
+
+            graph_client = get_graph_client()
+            loop = asyncio.get_event_loop()
+            ranked = await loop.run_in_executor(
+                None, graph_client.retrieve_ranked_remedies, symptoms, bio_phase
             )
+            if ranked:
+                graph_lines = [
+                    f"- {r['remedy']} (score: {r['base_score']:.2f}, "
+                    f"bio-enhancement: ×{r['enhancement']:.2f}, rank: {r['rank']:.2f})"
+                    for r in ranked[:5]
+                ]
+                return "\n\n=== OUTCOME-RANKED REMEDIES (Graph RAG) ===\n" + "\n".join(graph_lines)
+            return ""
+        except Exception:
+            return ""
 
-        async def _diag():
-            return await run_diagnostician_standalone(
-                user_symptoms=query_in_english,
-                user_allergies=_profile.get("allergies") or [],
-                user_medications=_profile.get("current_medications") or [],
-                user_conditions=_profile.get("medical_conditions") or [],
-            )
-
-        results = await asyncio.gather(_rag(), _diag(), return_exceptions=True)
-        rag_result_raw, diag_result_raw = results
-
-        # Parse RAG result
-        if isinstance(rag_result_raw, Exception):
-            _trace(f"  [C] RAG FAILED: {rag_result_raw}")
-        elif isinstance(rag_result_raw, tuple) and len(rag_result_raw) == 2:
-            response_map, _ = rag_result_raw
-            rag_context = response_map.get("rag_context") or response_map.get("generated_final_response", "")
-        else:
-            _trace(f"  [C] RAG unexpected return type: {type(rag_result_raw)}")
-
-        # Parse Diagnostician result
-        if isinstance(diag_result_raw, Exception):
-            _trace(f"  [C] Diagnostician FAILED: {diag_result_raw}")
-        elif isinstance(diag_result_raw, dict):
-            diag_result = diag_result_raw
-    else:
-        # MINOR path — RAG only, skip Diagnostician
-        _trace("  [C] MINOR path — RAG only (skipping Diagnostician)")
+    async def _rag():
         try:
             response_pair = await execute_rag_pipeline(
                 query_in_english, input_language_detected, email_id,
@@ -367,38 +747,50 @@ async def _run_pipeline(
             )
             if isinstance(response_pair, tuple) and len(response_pair) == 2:
                 response_map, _ = response_pair
-                rag_context = response_map.get("rag_context") or response_map.get("generated_final_response", "")
+                return response_map.get("rag_context") or response_map.get("generated_final_response", "")
         except Exception as e:
             _trace(f"  [C] RAG FAILED: {e}")
+        return ""
 
-    # ── Step 1b: Graph RAG — outcome-adaptive remedy ranking ────────────
-    if GRAPH_RAG_AVAILABLE and bio_context_str:
+    diag_result = {"diagnosis_output": "", "primary_condition": ""}
+
+    # Step 1a: RAG + Graph RAG in parallel (both paths need this)
+    _trace(f"  [C] RAG + Graph RAG in parallel ({'SERIOUS' if needs_diag else 'MINOR'})")
+    results = await asyncio.gather(_rag(), _graph_rag(), return_exceptions=True)
+    rag_result_raw, graph_rag_ctx = results
+
+    if isinstance(rag_result_raw, str):
+        rag_context = rag_result_raw
+    elif isinstance(rag_result_raw, Exception):
+        _trace(f"  [C] RAG FAILED: {rag_result_raw}")
+
+    if isinstance(graph_rag_ctx, str) and graph_rag_ctx:
+        rag_context += graph_rag_ctx
+
+    # Step 1b: Diagnostician (serious only, uses RAG context for accurate diagnosis)
+    if needs_diag and MULTI_AGENT_AVAILABLE:
+        _trace("  [C] Diagnostician (with RAG context)...")
         try:
-            from legacy_healthcare.rag_service.execute_rag import ContextManager
-            entities = ContextManager.extract_entities(query_in_english)
-            symptoms = entities.get("conditions", [])
-            if symptoms:
-                # Extract circadian phase from bio_context_str for graph lookup
-                bio_phase = bio_context_str.split(",")[0].replace("Circadian Phase:", "").strip() if bio_context_str else "default"
-                graph_client = KnowledgeGraphClient()
-                try:
-                    ranked = graph_client.retrieve_ranked_remedies(symptoms, bio_phase)
-                    if ranked:
-                        graph_lines = [f"- {r['remedy']} (rank: {r['rank']:.1f})" for r in ranked[:5]]
-                        rag_context += "\n\n=== OUTCOME-RANKED REMEDIES (Graph RAG) ===\n"
-                        rag_context += "\n".join(graph_lines)
-                        _trace(f"  [C-1b] Graph RAG: {len(ranked)} remedies ranked")
-                finally:
-                    graph_client.close()
-        except KeyError:
-            _trace("  [C-1b] Graph RAG skipped (Neo4j not configured)")
-        except Exception as e:
-            _trace(f"  [C-1b] Graph RAG error: {e}")
+            # Build enriched symptom context with conversation + lab history
+            _symptom_ctx = query_in_english
+            if conversation_context:
+                _symptom_ctx = conversation_context + "\nCURRENT QUERY: " + query_in_english
+            if lab_context:
+                _symptom_ctx = lab_context + "\n" + _symptom_ctx
 
-    _trace(
-        f"  [C] RAG={len(rag_context)} chars | "
-        f"Diag={diag_result.get('primary_condition') or 'skipped'}"
-    )
+            diag_result_raw = await run_diagnostician_standalone(
+                user_symptoms=_symptom_ctx,
+                user_allergies=_profile.get("allergies") or [],
+                user_medications=_profile.get("current_medications") or [],
+                user_conditions=_profile.get("medical_conditions") or [],
+                rag_context=rag_context[:2000],
+            )
+            if isinstance(diag_result_raw, dict):
+                diag_result = diag_result_raw
+        except Exception as e:
+            _trace(f"  [C] Diagnostician FAILED: {e}")
+
+    _trace(f"  [C] RAG={len(rag_context)} chars | Diag={diag_result.get('primary_condition') or 'skipped'}")
 
     # ── Step 1c: Pre-filter RAG context — strip allergen mentions ───────
     user_allergies_lower = [a.lower().strip() for a in (_profile.get("allergies") or []) if a]
@@ -412,86 +804,111 @@ async def _run_pipeline(
             rag_context = "\n".join(filtered_lines)
         _trace(f"  [C-1c] Pre-filtered RAG context for {len(user_allergies_lower)} allergens")
 
-    # ── Step 2: Multi-Agent (Proposer → Critic) ─────────────────────────
+    # ── Step 2: Generate response ───────────────────────────────────────
     llm_response = ""
     agent_pipeline_used = False
 
-    if MULTI_AGENT_AVAILABLE:
-        if not needs_diag:
-            # ── FAST PATH: Minor query — Proposer only, skip Critic ──
-            if progress_fn:
-                progress_fn('generating', 'Generating personalized remedies...', 'fa-leaf')
-            try:
-                _trace("  [C-2] FAST PATH — Proposer only (minor query)")
-                fast_response = await run_proposer_only(
-                    user_symptoms=query_in_english,
-                    rag_context=rag_context,
-                    bio_context=bio_context_str,
-                    user_name=user_name or "",
-                    user_allergies=_profile.get("allergies") or [],
-                    user_medications=_profile.get("current_medications") or [],
-                    user_conditions=_profile.get("medical_conditions") or [],
-                )
-                if fast_response and fast_response != _AGENT_FALLBACK:
-                    llm_response = fast_response
-                    agent_pipeline_used = True
-                    _trace("  [C-2] FAST PATH DONE")
-                else:
-                    llm_response = _AGENT_FALLBACK
-            except Exception as e:
-                _trace(f"  [C-2] FAST PATH ERROR: {e}")
-                logger.error(f"Proposer-only error: {e}", exc_info=True)
-                llm_response = _AGENT_FALLBACK
-        else:
-            # ── FULL PATH: Serious query — Proposer → Critic ──
-            if progress_fn:
-                progress_fn('generating', 'AI agents crafting your response...', 'fa-robot')
-            try:
-                _trace("  [C-2] Proposer -> Critic...")
-                verified_response = await run_verification_pipeline(
-                    user_symptoms=query_in_english,
-                    rag_context=rag_context,
-                    bio_context=bio_context_str,
-                    user_name=user_name or "",
-                    user_allergies=_profile.get("allergies") or [],
-                    user_medications=_profile.get("current_medications") or [],
-                    user_conditions=_profile.get("medical_conditions") or [],
-                    diagnosis_output=diag_result.get("diagnosis_output", ""),
-                    symptom_list=diag_result.get("symptom_list", []),
-                    primary_condition=diag_result.get("primary_condition", ""),
-                )
+    if not needs_diag:
+        # ── MINOR: Single LLM call — fast path ──
+        if progress_fn:
+            progress_fn('generating', 'Generating personalized remedies...', 'fa-leaf')
+        try:
+            from agents.prompts import PROPOSER_PROMPT
+            from legacy_healthcare.rag_service.openai_service import make_openai_request
+            from django_core.config import Config
 
-                if progress_fn:
-                    progress_fn('review', 'Medical safety peer review...', 'fa-user-md')
+            allergies = _profile.get("allergies") or []
+            medications = _profile.get("current_medications") or []
+            conditions = _profile.get("medical_conditions") or []
 
-                if verified_response and verified_response != _AGENT_FALLBACK:
-                    llm_response = verified_response
+            # Build enriched symptom field with conversation + lab context
+            _enriched_symptoms = query_in_english
+            if conversation_context or lab_context:
+                _parts = []
+                if lab_context:
+                    _parts.append(lab_context)
+                if conversation_context:
+                    _parts.append(conversation_context)
+                _parts.append(f"CURRENT QUERY: {query_in_english}")
+                _enriched_symptoms = "\n".join(_parts)
+
+            prompt = PROPOSER_PROMPT.format(
+                user_name=user_name or "",
+                user_allergies=", ".join(str(a) for a in allergies) if allergies else "None declared",
+                user_medications=", ".join(str(m) for m in medications) if medications else "None declared",
+                user_conditions=", ".join(str(c) for c in conditions) if conditions else "None declared",
+                user_symptoms=_enriched_symptoms,
+                rag_context=rag_context[:2000],
+                bio_context=bio_context_str,
+                critic_feedback="",
+                diagnosis_context="No diagnosis needed for minor ailments. Use PATH A.",
+            )
+
+            _trace("  [C-2] MINOR — single LLM call...")
+            response, exception, retries = await make_openai_request(
+                prompt, model=Config.MODEL_CHAT, temperature=0.3, max_retries=2, max_tokens=1500,
+            )
+            if response and response.choices:
+                content = response.choices[0].message.content
+                if content and content.strip():
+                    llm_response = content.strip()
                     agent_pipeline_used = True
-                    _trace("  [C-2] APPROVED")
-                elif verified_response == _AGENT_FALLBACK:
-                    _trace("  [C-2] FALLBACK triggered")
-                    llm_response = _AGENT_FALLBACK
-                else:
-                    _trace("  [C-2] Empty response — using FALLBACK")
-                    llm_response = _AGENT_FALLBACK
-            except Exception as e:
-                _trace(f"  [C-2] ERROR: {e}")
-                logger.error(f"Multi-Agent pipeline error: {e}", exc_info=True)
+
+            if not llm_response:
                 llm_response = _AGENT_FALLBACK
+        except Exception as e:
+            _trace(f"  [C-2] ERROR: {e}")
+            logger.error(f"LLM call error: {e}", exc_info=True)
+            llm_response = _AGENT_FALLBACK
+    elif MULTI_AGENT_AVAILABLE:
+        # ── SERIOUS: Proposer → Critic (safety-verified) ──
+        if progress_fn:
+            progress_fn('generating', 'AI diagnosing and verifying...', 'fa-robot')
+        try:
+            _trace(f"  [C-2] SERIOUS — Proposer -> Critic (diagnosis: {diag_result.get('primary_condition') or 'none'})...")
+            # Build enriched symptom field for serious path too
+            _enriched_serious = query_in_english
+            if conversation_context or lab_context:
+                _parts = []
+                if lab_context:
+                    _parts.append(lab_context)
+                if conversation_context:
+                    _parts.append(conversation_context)
+                _parts.append(f"CURRENT QUERY: {query_in_english}")
+                _enriched_serious = "\n".join(_parts)
+
+            verified_response = await run_verification_pipeline(
+                user_symptoms=_enriched_serious,
+                rag_context=rag_context,
+                bio_context=bio_context_str,
+                user_name=user_name or "",
+                user_allergies=_profile.get("allergies") or [],
+                user_medications=_profile.get("current_medications") or [],
+                user_conditions=_profile.get("medical_conditions") or [],
+                diagnosis_output=diag_result.get("diagnosis_output", ""),
+                primary_condition=diag_result.get("primary_condition", ""),
+            )
+            if verified_response and verified_response != _AGENT_FALLBACK:
+                llm_response = verified_response
+                agent_pipeline_used = True
+            else:
+                llm_response = _AGENT_FALLBACK
+        except Exception as e:
+            _trace(f"  [C-2] ERROR: {e}")
+            logger.error(f"Multi-Agent pipeline error: {e}", exc_info=True)
+            llm_response = _AGENT_FALLBACK
     else:
-        _trace("  [C-2] Multi-Agent NOT AVAILABLE — using FALLBACK")
         llm_response = _AGENT_FALLBACK
 
-    # SAFETY GUARANTEE: llm_response is ALWAYS from multi-agent or FALLBACK
-    # Raw RAG chunks (rag_context) are NEVER exposed to the user.
-
-    # ── Step 3: Trust Engine ─────────────────────────────────────────────
-    if progress_fn:
-        progress_fn('trust', 'Verifying evidence base...', 'fa-check-double')
-    _trace("  [D-1] Trust Engine verification...")
+    # ── Step 3: Trust Engine (skip for conversational follow-ups) ────────
     trust_data = None
 
-    if TRUST_ENGINE_AVAILABLE and llm_response and llm_response != _AGENT_FALLBACK:
+    if is_followup:
+        _trace("  [D-1] Trust Engine SKIPPED (conversational follow-up)")
+    elif TRUST_ENGINE_AVAILABLE and llm_response and llm_response != _AGENT_FALLBACK:
+        if progress_fn:
+            progress_fn('trust', 'Verifying evidence base...', 'fa-check-double')
+        _trace("  [D-1] Trust Engine verification...")
         try:
             trust_engine = get_trust_engine()
             user_conditions = _profile.get("medical_conditions", []) or []
@@ -508,7 +925,9 @@ async def _run_pipeline(
             )
 
             if trust_result.formatted_output:
-                llm_response += trust_result.formatted_output
+                llm_response = _insert_after_remedies(
+                    llm_response, trust_result.formatted_output
+                )
 
             trust_data = {
                 "verified_herbs": trust_result.verified_herbs,
@@ -727,12 +1146,20 @@ class ServViaChatViewSet(GenericViewSet):
             # STEP E: FINAL OUTPUT
             # ═══════════════════════════════════════════════════════
             if flagged_herbs:
+                # 1. Replace flagged herbs with safe substitutes in remedy text
+                final_response = _substitute_flagged_remedies(llm_response, flagged_herbs)
+                # 2. Insert summary alert block after all remedies
                 warning_block = _format_safety_inline_warning(flagged_herbs)
-                final_response = warning_block + llm_response
+                final_response = _insert_after_remedies(final_response, warning_block)
                 pipeline_status = "safety_flagged"
             else:
                 final_response = llm_response
                 pipeline_status = "safe_response"
+
+            # Strip the machine-readable herb declaration before sending to UI
+            final_response = re.sub(
+                r'\s*<!--\s*HERBS_USED:.*?-->', '', final_response
+            ).rstrip()
 
             # ─── Build response ──────────────────────────────────
             response_data.data["message"] = "Successful retrieval of response"
@@ -889,9 +1316,18 @@ def stream_chat_view(request):
 
     email_id = (body.get("email_id") or "").strip()
     original_query = (body.get("query") or "").strip()
+    session_id = (body.get("session_id") or "").strip()
 
     if not email_id or not original_query:
         return JsonResponse({"error": "Missing email_id or query"}, status=400)
+
+    # Set session scope for conversation (new page load = new session = fresh context)
+    if session_id:
+        try:
+            from core_temporal.conversation.manager import conversation_manager
+            conversation_manager.set_session(email_id, session_id)
+        except Exception:
+            pass
 
     event_q = queue.Queue()
 
@@ -902,6 +1338,7 @@ def stream_chat_view(request):
 
     def _pipeline_worker():
         """Run the full pipeline in a background thread, posting events to queue."""
+        _stream_start = _time.time()
         try:
             _trace(f">>> STREAM | {original_query}")
 
@@ -1005,29 +1442,41 @@ def stream_chat_view(request):
             agent_pipeline_used = pipeline_result["agent_pipeline_used"]
             follow_up_questions = pipeline_result["follow_up_questions"]
 
-            # ─── SAFETY VALIDATION ────────────────────────────
-            event_q.put(("stage", {"id": "safety", "label": "Running pharmacovigilance check...", "icon": "fa-shield-alt"}))
+            # ─── SAFETY VALIDATION (skip for conversational follow-ups) ─────
+            _is_followup = _is_conversational_followup(query_in_english.lower())
             flagged_herbs = []
-            medical_profile = _build_medical_profile(email_id, user_profile_data)
-            proposed_herbs = _extract_herbs_from_response(llm_response)
 
-            for herb_name in proposed_herbs:
-                proposal = RemedyProposal(
-                    herb_or_remedy_name=herb_name,
-                    intended_effect="LLM-recommended remedy",
-                )
-                result = _safety_validator.validate_remedy(medical_profile, proposal)
-                if not result.is_safe:
-                    flagged_herbs.append((herb_name, result))
-
-            # ─── BUILD RESULT ─────────────────────────────────
-            if flagged_herbs:
-                warning_block = _format_safety_inline_warning(flagged_herbs)
-                final_response = warning_block + llm_response
-                pipeline_status = "safety_flagged"
-            else:
+            if _is_followup:
                 final_response = llm_response
                 pipeline_status = "safe_response"
+            else:
+                event_q.put(("stage", {"id": "safety", "label": "Running pharmacovigilance check...", "icon": "fa-shield-alt"}))
+                medical_profile = _build_medical_profile(email_id, user_profile_data)
+                proposed_herbs = _extract_herbs_from_response(llm_response)
+
+                for herb_name in proposed_herbs:
+                    proposal = RemedyProposal(
+                        herb_or_remedy_name=herb_name,
+                        intended_effect="LLM-recommended remedy",
+                    )
+                    result = _safety_validator.validate_remedy(medical_profile, proposal)
+                    if not result.is_safe:
+                        flagged_herbs.append((herb_name, result))
+
+                # ─── BUILD RESULT ─────────────────────────────────
+                if flagged_herbs:
+                    final_response = _substitute_flagged_remedies(llm_response, flagged_herbs)
+                    warning_block = _format_safety_inline_warning(flagged_herbs)
+                    final_response = _insert_after_remedies(final_response, warning_block)
+                    pipeline_status = "safety_flagged"
+                else:
+                    final_response = llm_response
+                    pipeline_status = "safe_response"
+
+            # Strip the machine-readable herb declaration before sending to UI
+            final_response = re.sub(
+                r'\s*<!--\s*HERBS_USED:.*?-->', '', final_response
+            ).rstrip()
 
             metadata = {
                 "pipeline": pipeline_status,
@@ -1062,7 +1511,18 @@ def stream_chat_view(request):
             if agent_pipeline_used:
                 metadata["agent_verified"] = True
 
-            _trace(f"  [E] STREAM DONE | {pipeline_status} | {len(final_response)} chars")
+            # ─── SAVE TO CONVERSATION MEMORY ─────────────────
+            try:
+                from core_temporal.conversation.manager import conversation_manager
+                conversation_manager.add_message(
+                    email_id, 'assistant', final_response,
+                    metadata={"pipeline": pipeline_status}
+                )
+            except Exception as conv_e:
+                logger.warning(f"Failed to save assistant response to conversation: {conv_e}")
+
+            _elapsed = _time.time() - _stream_start
+            _trace(f"  ServVia responded in {_elapsed:.2f}s")
             event_q.put(("result", {"response": final_response, **metadata}))
 
         except Exception as e:
