@@ -50,3 +50,4 @@ build/
 testing/
 servvia/skin_analysis/test/
 *lint-results.txt
+lab_result.json
