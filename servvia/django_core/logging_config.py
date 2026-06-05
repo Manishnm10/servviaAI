@@ -1,4 +1,5 @@
 import logging.config
+import sys
 
 from django_core.config import ENV_CONFIG
 
@@ -44,9 +45,7 @@ class ColoredFormatter(logging.Formatter):
         """
         log_level = record.levelname
         if log_level in COLORS:
-            # record.asctime = COLORS[log_level] + record.levelname + COLORS["ENDC"]
             record.levelname = COLORS[log_level] + log_level + COLORS["ENDC"]
-            # record.msg = COLORS[log_level] + record.msg + COLORS["ENDC"]
             record.msg = (
                 COLORS[log_level] + record.msg + COLORS["ENDC"]
                 if isinstance(record.msg, str)
@@ -58,10 +57,8 @@ class ColoredFormatter(logging.Formatter):
 
 LOGGING_CONFIG = {
     "version": 1,
-    "disable_existing_loggers": True,
-    "filters": {
-        # information regarding filters
-    },
+    "disable_existing_loggers": False,
+    "filters": {},
     "root": {
         "handlers": ["console"],
         "level": ENV_CONFIG.get("LOG_LEVEL_FOR_CONSOLE", "INFO"),
@@ -75,12 +72,36 @@ LOGGING_CONFIG = {
             "format": "[%(asctime)s] [%(levelname)-s] %(lineno)-4s%(name)-15s | %(message)s",
             "()": ColoredFormatter,
         },
+        "django_server": {
+            "()": "django.utils.log.ServerFormatter",
+            "format": "[{server_time}] {message}",
+            "style": "{",
+        },
     },
     "handlers": {
         "console": {
             "level": ENV_CONFIG.get("LOG_LEVEL_FOR_CONSOLE", "DEBUG"),
             "class": "logging.StreamHandler",
+            "stream": "ext://sys.stdout",
             "formatter": "colored_formatter_with_datetime",
+        },
+        "django_server": {
+            "level": "INFO",
+            "class": "logging.StreamHandler",
+            "stream": "ext://sys.stdout",
+            "formatter": "django_server",
+        },
+    },
+    "loggers": {
+        "django.server": {
+            "handlers": ["django_server"],
+            "level": "INFO",
+            "propagate": False,
+        },
+        "presidio-analyzer": {
+            "handlers": ["console"],
+            "level": "WARNING",
+            "propagate": False,
         },
     },
 }
@@ -90,4 +111,17 @@ def configure_logging():
     """
     Function to configure logging.
     """
+    # Fix Windows cp1252 crash on emoji/Unicode in log messages:
+    # Reconfigure stdout/stderr to replace unencodable chars with '?'
+    if hasattr(sys.stdout, "reconfigure"):
+        try:
+            sys.stdout.reconfigure(errors="replace", line_buffering=True)
+        except Exception:
+            pass
+    if hasattr(sys.stderr, "reconfigure"):
+        try:
+            sys.stderr.reconfigure(errors="replace", line_buffering=True)
+        except Exception:
+            pass
+
     logging.config.dictConfig(LOGGING_CONFIG)

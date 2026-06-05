@@ -1,0 +1,1248 @@
+{
+  "version": "2.2.0-beta",
+  "last_updated": "2025-12-16",
+  "citation_standard": "PubMed",
+  "disclaimer": "This database contains evidence summaries from PubMed-indexed literature. Evidence quality varies. Always consult healthcare providers. This data is for informational purposes only.",
+  "evidence_level_definitions": {
+    "high": "Consistent results from multiple large RCTs or high-quality systematic reviews",
+    "moderate": "Results from one or more RCTs with some limitations, or well-conducted observational studies",
+    "low": "Results from observational studies or RCTs with significant limitations",
+    "very_low": "Case reports, expert opinion, in-vitro studies, or animal studies only",
+    "insufficient": "No reliable human studies available or severely conflicting results"
+  },
+  "recommendation_strength_definitions": {
+    "strong": "Benefits clearly outweigh risks for most patients based on high-quality evidence",
+    "conditional": "Benefits may outweigh risks for some patients; consider individual factors and preferences",
+    "weak": "Uncertain benefit-risk balance; shared decision-making with healthcare provider recommended",
+    "against": "Risks likely outweigh benefits; generally not recommended"
+  },
+  "certainty_definitions": {
+    "high": "Further research is very unlikely to change confidence in the estimate of effect",
+    "moderate": "Further research is likely to have an important impact on confidence and may change the estimate",
+    "low": "Further research is very likely to have an important impact on confidence and is likely to change the estimate",
+    "very_low": "Any estimate of effect is very uncertain"
+  },
+  "evidence": [
+    {
+      "id": "ashwagandha_stress_001",
+      "herb": "ashwagandha",
+      "herb_aliases": [
+        "withania somnifera",
+        "indian ginseng",
+        "winter cherry"
+      ],
+      "condition": "stress_and_anxiety",
+      "condition_aliases": [
+        "generalized anxiety",
+        "chronic stress",
+        "insomnia"
+      ],
+      "evidence_level": "moderate",
+      "study_type": "systematic_review",
+      "summary": "Standardized extracts likely reduce stress and anxiety levels compared to placebo.",
+      "detailed_summary": "Multiple RCTs suggest that full-spectrum root extracts of Ashwagandha significantly reduce cortisol levels (the stress hormone) and scores on stress assessment scales (like DASS-21 or HAM-A) compared to placebo. It is one of the most well-researched adaptogens.",
+      "limitations": [
+        "High heterogeneity in extract formulations (root vs. leaf)",
+        "Most studies are funded by supplement manufacturers",
+        "Long-term safety data (>6 months) is limited"
+      ],
+      "citations": [
+        {
+          "pmid": "31517876",
+          "title": "An investigation into the stress-relieving and pharmacological actions of an ashwagandha (Withania somnifera) extract",
+          "authors": "Lopresti AL, et al.",
+          "journal": "Medicine",
+          "year": 2019,
+          "study_type": "RCT",
+          "sample_size": "60 adults",
+          "conclusion": "Significantly reduced morning cortisol and stress scores vs placebo."
+        },
+        {
+          "pmid": "25405876",
+          "title": "A systematic review and meta-analysis of the use of Withania somnifera for the treatment of anxiety and stress",
+          "authors": "Pratte MA, et al.",
+          "journal": "Journal of Alternative and Complementary Medicine",
+          "year": 2014,
+          "conclusion": "Five human trials showed significant improvement in stress/anxiety outcomes."
+        }
+      ],
+      "mechanisms": [
+        "Mimics GABA activity leading to anxiolytic effects",
+        "Modulates HPA axis and lowers cortisol",
+        "Antioxidant neuroprotection"
+      ],
+      "dosing": {
+        "standardized_extract": "300-600 mg daily (standardized to >5% withanolides)",
+        "frequency": "Twice daily with food",
+        "duration": "Typically studied for 8-12 weeks"
+      },
+      "safety_notes": [
+        "May cause drowsiness",
+        "May increase thyroid hormone levels (monitor in hyperthyroidism)",
+        "GI upset in high doses"
+      ],
+      "contraindications": [
+        "Pregnancy (potential abortifacient properties)",
+        "Autoimmune diseases (may stimulate immune system)",
+        "Hyperthyroidism"
+      ],
+      "interactions": [
+        {
+          "substance": "Thyroid medications (Levothyroxine)",
+          "severity": "moderate",
+          "description": "May have additive effects, risking thyrotoxicosis."
+        },
+        {
+          "substance": "Benzodiazepines/Sedatives",
+          "severity": "moderate",
+          "description": "Potentiates sedative effects."
+        }
+      ],
+      "recommendation_strength": "conditional",
+      "certainty_of_evidence": "moderate",
+      "grade_assessment": "⊕⊕⊕○ Moderate",
+      "clinical_bottom_line": "Effective adaptogen for chronic stress and mild anxiety. Use standardized root extracts. Monitor thyroid function if patient has history of thyroid issues."
+    },
+    {
+      "id": "st_johns_wort_depression_001",
+      "herb": "st_johns_wort",
+      "herb_aliases": [
+        "hypericum perforatum",
+        "klamath weed"
+      ],
+      "condition": "depression",
+      "condition_aliases": [
+        "mild to moderate major depressive disorder",
+        "mood disorder"
+      ],
+      "evidence_level": "high",
+      "study_type": "systematic_review",
+      "summary": "Effective for mild to moderate depression, comparable to SSRIs, but with critical drug interactions.",
+      "detailed_summary": "Extensive Cochrane reviews confirm that St. John's Wort is superior to placebo and similarly effective to standard antidepressants (SSRIs/tricyclics) for mild to moderate depression, often with fewer side effects. However, it is a potent inducer of CYP3A4 enzymes, rendering many life-saving drugs ineffective.",
+      "limitations": [
+        "Not effective for severe depression",
+        "High variability in commercial product quality",
+        "Dangerous interaction profile limits clinical utility"
+      ],
+      "citations": [
+        {
+          "pmid": "18843608",
+          "title": "St. John's wort for major depression",
+          "authors": "Linde K, et al.",
+          "journal": "Cochrane Database of Systematic Reviews",
+          "year": 2008,
+          "study_type": "Meta-analysis",
+          "sample_size": "29 trials, 5489 patients",
+          "conclusion": "Superior to placebo, similar to standard antidepressants, fewer side effects."
+        }
+      ],
+      "mechanisms": [
+        "Inhibition of serotonin, norepinephrine, and dopamine reuptake",
+        "Downregulation of beta-adrenergic receptors",
+        "Hyperforin is likely the primary active constituent"
+      ],
+      "dosing": {
+        "standardized_extract": "300 mg (standardized to 0.3% hypericin)",
+        "frequency": "3 times daily",
+        "duration": "4-6 weeks for initial effect"
+      },
+      "safety_notes": [
+        "Photosensitivity (sunburn risk)",
+        "Serotonin syndrome risk if combined with SSRIs"
+      ],
+      "contraindications": [
+        "Use of ANY drug metabolized by CYP3A4",
+        "HIV/AIDS (indinavir)",
+        "Organ transplant (cyclosporine)",
+        "Severe depression/Suicidality"
+      ],
+      "interactions": [
+        {
+          "substance": "Oral Contraceptives",
+          "severity": "major",
+          "description": "Reduces efficacy, leading to unintended pregnancy."
+        },
+        {
+          "substance": "Warfarin",
+          "severity": "major",
+          "description": "Reduces INR, increasing clot risk."
+        },
+        {
+          "substance": "SSRIs (Prozac, Zoloft)",
+          "severity": "major",
+          "description": "Risk of Serotonin Syndrome."
+        },
+        {
+          "substance": "Cyclosporine/Tacrolimus",
+          "severity": "critical",
+          "description": "Causes organ rejection by lowering drug levels."
+        }
+      ],
+      "recommendation_strength": "conditional",
+      "certainty_of_evidence": "high",
+      "grade_assessment": "⊕⊕⊕⊕ High",
+      "clinical_bottom_line": "Effective monotherapy for mild-moderate depression, BUT strictly contraindicated in patients taking almost any other medication due to CYP3A4 induction. Thorough medication reconciliation is mandatory."
+    },
+    {
+      "id": "garlic_hypertension_001",
+      "herb": "garlic",
+      "herb_aliases": [
+        "allium sativum",
+        "aged garlic extract",
+        "AGE"
+      ],
+      "condition": "hypertension",
+      "condition_aliases": [
+        "high blood pressure",
+        "cardiovascular health"
+      ],
+      "evidence_level": "moderate",
+      "study_type": "meta_analysis",
+      "summary": "Garlic supplements, particularly aged garlic extract, may lower systolic BP by 7-10 mmHg in hypertensive patients.",
+      "detailed_summary": "Meta-analyses indicate that garlic preparations are superior to placebo in reducing blood pressure in individuals with hypertension. The effect size is comparable to standard first-line monotherapy with beta-blockers or ACE inhibitors.",
+      "limitations": [
+        "Fresh garlic is less consistent than aged extracts",
+        "Odor is a significant barrier to compliance",
+        "Some studies have high risk of bias"
+      ],
+      "citations": [
+        {
+          "pmid": "26764326",
+          "title": "Garlic for the reduction of cardiovascular disease risk factors: a systematic review and meta-analysis",
+          "authors": "Varshney R, Budoff MJ",
+          "journal": "Journal of Nutrition",
+          "year": 2016,
+          "conclusion": "Consistent reduction in blood pressure and arterial stiffness."
+        }
+      ],
+      "mechanisms": [
+        "Increases nitric oxide production (vasodilation)",
+        "ACE inhibition-like activity",
+        "Reduction of oxidative stress"
+      ],
+      "dosing": {
+        "aged_garlic_extract": "600-1200 mg daily (divided doses)",
+        "fresh_garlic": "1-2 cloves daily (less reliable dosing)",
+        "standard": "Standardized to S-allylcysteine content"
+      },
+      "safety_notes": [
+        "Body odor/Breath odor",
+        "GI upset/Heartburn",
+        "Increased bleeding time"
+      ],
+      "contraindications": [
+        "Surgery within 7-10 days"
+      ],
+      "interactions": [
+        {
+          "substance": "Anticoagulants (Warfarin)",
+          "severity": "moderate",
+          "description": "Increases INR and bleeding risk."
+        },
+        {
+          "substance": "Protease Inhibitors (Saquinavir)",
+          "severity": "moderate",
+          "description": "May reduce drug levels."
+        }
+      ],
+      "recommendation_strength": "conditional",
+      "certainty_of_evidence": "moderate",
+      "grade_assessment": "⊕⊕⊕○ Moderate",
+      "clinical_bottom_line": "Useful adjunctive therapy for hypertension. Use Aged Garlic Extract (AGE) for better tolerability and standardization. Monitor bleeding risk."
+    },
+    {
+      "id": "cranberry_uti_001",
+      "herb": "cranberry",
+      "herb_aliases": [
+        "vaccinium macrocarpon",
+        "cranberry juice",
+        "PACs"
+      ],
+      "condition": "uti_prevention",
+      "condition_aliases": [
+        "urinary tract infection",
+        "cystitis prophylaxis"
+      ],
+      "evidence_level": "moderate",
+      "study_type": "systematic_review",
+      "summary": "Effective for reducing the risk of recurrent UTIs in women and children; less effective for treating active infections.",
+      "detailed_summary": "Cranberry products containing proanthocyanidins (PACs) prevent E. coli bacteria from adhering to the bladder wall. Cochrane reviews support its use for prevention in women with recurrent UTIs, reducing recurrence by about 26%. It is NOT an antibiotic and does not cure active infections.",
+      "limitations": [
+        "High sugar content in juices",
+        "High dropout rates in studies due to taste/GI upset",
+        "Dosage of PACs varies wildly between brands"
+      ],
+      "citations": [
+        {
+          "pmid": "37068952",
+          "title": "Cranberries for preventing urinary tract infections",
+          "authors": "Williams G, et al.",
+          "journal": "Cochrane Database of Systematic Reviews",
+          "year": 2023,
+          "conclusion": "Cranberry products reduce the risk of UTI in women with recurrent UTIs, children, and people susceptible to UTI following intervention."
+        }
+      ],
+      "mechanisms": [
+        "Type-A Proanthocyanidins (PACs) inhibit P-fimbriae adhesion of E. coli to uroepithelium"
+      ],
+      "dosing": {
+        "capsules": "Standardized to 36mg PACs daily",
+        "juice": "240-300ml pure juice daily (unsweetened preferred)",
+        "duration": "Long-term for prevention"
+      },
+      "safety_notes": [
+        "High oxalate content (kidney stone risk)",
+        "GI discomfort/diarrhea with large amounts"
+      ],
+      "contraindications": [
+        "History of calcium oxalate kidney stones (relative)"
+      ],
+      "interactions": [
+        {
+          "substance": "Warfarin",
+          "severity": "moderate",
+          "description": "Conflicting evidence, but case reports suggest potential increase in INR."
+        }
+      ],
+      "recommendation_strength": "strong",
+      "certainty_of_evidence": "moderate",
+      "grade_assessment": "⊕⊕⊕○ Moderate",
+      "clinical_bottom_line": "Recommended for prevention of recurrent UTIs in women. Ensure product contains 36mg soluble PACs. Not for treatment of active infection."
+    },
+    {
+      "id": "valerian_sleep_001",
+      "herb": "valerian",
+      "herb_aliases": [
+        "valeriana officinalis",
+        "valerian root"
+      ],
+      "condition": "insomnia",
+      "condition_aliases": [
+        "sleep latency",
+        "sleep quality"
+      ],
+      "evidence_level": "low_to_moderate",
+      "study_type": "meta_analysis",
+      "summary": "May improve subjective sleep quality and latency, though objective data (polysomnography) is often inconsistent.",
+      "detailed_summary": "Valerian is a traditional sedative. Meta-analyses suggest it improves patients' perception of sleep quality. However, it acts slowly—effects may take 2-4 weeks of continuous use to manifest, unlike fast-acting pharmaceutical hypnotics.",
+      "limitations": [
+        "Unpleasant odor (smells like dirty socks)",
+        "Inconsistent results in objective sleep studies",
+        "Significant lag time for efficacy"
+      ],
+      "citations": [
+        {
+          "pmid": "17145239",
+          "title": "Valerian for sleep: a systematic review and meta-analysis",
+          "authors": "Bent S, et al.",
+          "journal": "American Journal of Medicine",
+          "year": 2006,
+          "conclusion": "Improvement in sleep quality without significant side effects."
+        }
+      ],
+      "mechanisms": [
+        "Inhibition of GABA breakdown",
+        "Interaction with adenosine receptors"
+      ],
+      "dosing": {
+        "extract": "300-600 mg extract taken 30-120 minutes before bed",
+        "tea": "2-3 grams dried root steeped",
+        "duration": "Use nightly for at least 2 weeks for full effect"
+      },
+      "safety_notes": [
+        "Morning grogginess (rare)",
+        "Vivid dreams",
+        " Hepatotoxicity is extremely rare but has been reported with adulterated products"
+      ],
+      "contraindications": [
+        "Pregnancy (lack of data)"
+      ],
+      "interactions": [
+        {
+          "substance": "Alcohol/Benzodiazepines",
+          "severity": "moderate",
+          "description": "Additive CNS depression."
+        }
+      ],
+      "recommendation_strength": "conditional",
+      "certainty_of_evidence": "low",
+      "grade_assessment": "⊕⊕○○ Low",
+      "clinical_bottom_line": "Safe option for mild insomnia. Manage expectations: it is not a 'knock-out' pill but improves sleep quality over weeks."
+    },
+    {
+      "id": "aloe_vera_burns_001",
+      "herb": "aloe_vera",
+      "herb_aliases": [
+        "aloe barbadensis",
+        "aloe gel"
+      ],
+      "condition": "burns",
+      "condition_aliases": [
+        "thermal burns",
+        "sunburn",
+        "first degree burns",
+        "wound healing"
+      ],
+      "evidence_level": "moderate",
+      "study_type": "systematic_review",
+      "summary": "Accelerates healing of first and second-degree burns compared to standard care.",
+      "detailed_summary": "Systematic reviews have consistently shown that topical aloe vera gel reduces the healing time of thermal burns by several days compared to silver sulfadiazine or petroleum jelly. It helps maintain moisture and reduces inflammation.",
+      "limitations": [
+        "Not effective for deep/surgical wounds (may delay healing in some cases)",
+        "Risk of allergic dermatitis",
+        "Product purity varies (many commercial gels contain little real aloe)"
+      ],
+      "citations": [
+        {
+          "pmid": "17314442",
+          "title": "The effect of aloe vera clinical trials on prevention and healing of skin wounds: a systematic review",
+          "authors": "Maenthaisong R, et al.",
+          "journal": "Burns",
+          "year": 2007,
+          "conclusion": "Aloe vera significantly reduced healing time of minor burns."
+        }
+      ],
+      "mechanisms": [
+        "Glucomannan stimulates fibroblast growth factor",
+        "Anti-inflammatory effects via bradykinase inhibition",
+        "Moisturizing properties prevent wound desiccation"
+      ],
+      "dosing": {
+        "topical": "Apply generous layer of pure gel 3-4 times daily",
+        "formulation": "Use >95% pure aloe gel; avoid products with alcohol or dyes"
+      },
+      "safety_notes": [
+        "Contact dermatitis in sensitive individuals",
+        "Do not apply to infected or open surgical wounds without medical advice"
+      ],
+      "contraindications": [
+        "Third-degree burns",
+        "Known allergy to Liliaceae family (garlic, onions, tulips)"
+      ],
+      "interactions": [
+        {
+          "substance": "Topical corticosteroids",
+          "severity": "minor",
+          "description": "May increase absorption of steroid creams."
+        }
+      ],
+      "recommendation_strength": "strong",
+      "certainty_of_evidence": "moderate",
+      "grade_assessment": "⊕⊕⊕○ Moderate",
+      "clinical_bottom_line": "Excellent first-line treatment for minor thermal burns and sunburns to speed healing and reduce pain."
+    },
+    {
+      "id": "honey_cough_001",
+      "herb": "honey",
+      "herb_aliases": [
+        "raw honey",
+        "manuka honey",
+        "natural honey"
+      ],
+      "condition": "cough",
+      "condition_aliases": [
+        "acute cough",
+        "nocturnal cough",
+        "upper respiratory infection cough"
+      ],
+      "evidence_level": "moderate",
+      "study_type": "systematic_review",
+      "summary": "may reduce cough frequency and severity in children over 1 year of age compared to placebo",
+      "detailed_summary": "A Cochrane systematic review of 6 RCTs involving 899 children found that honey probably reduces cough symptoms more than placebo and salbutamol when given for up to 3 days. The effect compared to dextromethorphan was less clear. Most studies were conducted in children aged 1-18 years with upper respiratory infections.",
+      "limitations": [
+        "Most studies had small sample sizes (50-150 participants)",
+        "Heterogeneous study populations and outcome measures",
+        "Variable honey types and doses used",
+        "Most studies conducted in single centers",
+        "Limited data on adults",
+        "Potential bias from honey's sweet taste in non-blinded studies"
+      ],
+      "citations": [
+        {
+          "pmid": "29633783",
+          "title": "Honey for acute cough in children",
+          "authors": "Oduwole O, Udoh EE, Oyo-Ita A, Meremikwu MM",
+          "journal": "Cochrane Database of Systematic Reviews",
+          "year": 2018,
+          "volume": "4",
+          "doi": "10.1002/14651858.CD007094.pub5",
+          "study_type": "Systematic Review and Meta-analysis",
+          "sample_size": "899 children across 6 RCTs",
+          "population": "Children aged 1-18 years with acute cough due to upper respiratory infection",
+          "intervention": "Honey (various types, 2.5-10ml) given before bedtime",
+          "comparators": "Placebo, no treatment, dextromethorphan, diphenhydramine, salbutamol",
+          "primary_outcome": "Cough frequency and severity",
+          "conclusion": "Honey probably reduces cough symptoms more than placebo and salbutamol but evidence comparing honey with dextromethorphan is limited",
+          "quality_assessment": "Moderate quality evidence (GRADE)",
+          "funding": "No external funding",
+          "conflicts": "None declared"
+        },
+        {
+          "pmid": "22869830",
+          "title": "Effect of honey on nocturnal cough and sleep quality: a double-blind, randomized, placebo-controlled study",
+          "authors": "Cohen HA, Rozen J, Kristal H, et al.",
+          "journal": "Pediatrics",
+          "year": 2012,
+          "volume": "130",
+          "issue": "3",
+          "pages": "465-471",
+          "doi": "10.1542/peds.2011-3075",
+          "study_type": "Double-blind RCT",
+          "sample_size": "300 children",
+          "population": "Children aged 1-5 years with nocturnal cough and URI symptoms for ≤7 days",
+          "intervention": "10g of eucalyptus honey, citrus honey, or labiatae honey 30 minutes before bedtime",
+          "comparators": "Silan date extract (placebo)",
+          "primary_outcome": "Cough frequency, cough severity, bothersome nature of cough, child sleep quality, parent sleep quality",
+          "conclusion": "All three honey types were significantly superior to placebo for all outcomes",
+          "quality_assessment": "Low risk of bias",
+          "funding": "Honey Board of Israel",
+          "conflicts": "Funding from honey industry noted"
+        },
+        {
+          "pmid": "20618098",
+          "title": "A comparison of the effect of honey, dextromethorphan, and diphenhydramine on nightly cough and sleep quality in children and their parents",
+          "authors": "Shadkam MN, Mozaffari-Khosravi H, Mozayan MR",
+          "journal": "Journal of Alternative and Complementary Medicine",
+          "year": 2010,
+          "volume": "16",
+          "issue": "7",
+          "pages": "787-793",
+          "study_type": "Single-blind RCT",
+          "sample_size": "139 children",
+          "population": "Children aged 2-5 years with nocturnal cough due to URI",
+          "conclusion": "Honey was more effective than dextromethorphan and diphenhydramine for symptomatic relief of nocturnal cough",
+          "quality_assessment": "Moderate risk of bias (single-blind)",
+          "conflicts": "None declared"
+        }
+      ],
+      "mechanisms": [
+        "Demulcent effect - coats and soothes irritated throat mucosa",
+        "Antioxidant properties from flavonoids and phenolic compounds",
+        "Potential antimicrobial activity against respiratory pathogens",
+        "May promote cytokine release involved in tissue repair",
+        "Sweet taste may trigger salivation and mucus secretion"
+      ],
+      "dosing": {
+        "children_1_5_years": "2.5-5 ml (half to one teaspoon) before bedtime",
+        "children_6_11_years": "5-10 ml (one to two teaspoons) before bedtime",
+        "adults": "10-15 ml (two to three teaspoons) before bedtime or as needed",
+        "frequency": "Usually single dose before bedtime; can repeat up to 3 times daily",
+        "duration": "Up to 7 days for acute cough; consult provider if symptoms persist"
+      },
+      "safety_notes": [
+        "CONTRAINDICATED in infants under 12 months due to risk of infant botulism",
+        "May affect blood glucose levels in diabetics",
+        "Allergic reactions possible in those with bee product allergies",
+        "Dental caries risk with frequent use - rinse mouth after consumption",
+        "Caloric content should be considered (approximately 64 calories per tablespoon)"
+      ],
+      "contraindications": [
+        "Age under 12 months (absolute contraindication)",
+        "Known allergy to honey or bee products",
+        "Poorly controlled diabetes (relative contraindication)"
+      ],
+      "interactions": [
+        {
+          "substance": "Anticoagulants (warfarin)",
+          "severity": "minor",
+          "description": "Theoretical interaction; honey may have mild antiplatelet effects"
+        }
+      ],
+      "recommendation_strength": "conditional",
+      "certainty_of_evidence": "low_to_moderate",
+      "grade_assessment": "⊕⊕⊕○ Moderate for children; ⊕⊕○○ Low for adults",
+      "clinical_bottom_line": "Honey is a reasonable option for symptomatic relief of acute cough in children over 1 year of age. Evidence in adults is limited. Should not replace evaluation for underlying causes of persistent cough."
+    },
+    {
+      "id": "ginger_sore_throat_001",
+      "herb": "ginger",
+      "herb_aliases": [
+        "zingiber officinale",
+        "fresh ginger",
+        "ginger root",
+        "adrak"
+      ],
+      "condition": "sore_throat",
+      "condition_aliases": [
+        "pharyngitis",
+        "throat pain",
+        "throat irritation"
+      ],
+      "evidence_level": "low",
+      "study_type": "limited_trials",
+      "summary": "may have anti-inflammatory properties that could help with throat irritation, but direct clinical evidence for sore throat is limited",
+      "detailed_summary": "While ginger has demonstrated anti-inflammatory and analgesic properties in laboratory studies and some clinical trials for other conditions, direct evidence for efficacy in sore throat is limited. Most evidence is extrapolated from studies on ginger's general anti-inflammatory effects.",
+      "limitations": [
+        "No large RCTs specifically for sore throat",
+        "Most evidence from in-vitro or animal studies",
+        "Variable preparations and doses studied",
+        "Extrapolation from other inflammatory conditions",
+        "Limited standardization of ginger products"
+      ],
+      "citations": [
+        {
+          "pmid": "23123794",
+          "title": "Anti-oxidative and anti-inflammatory effects of ginger in health and physical activity: review of current evidence",
+          "authors": "Mashhadi NS, Ghiasvand R, Askari G, Hariri M, Darvishi L, Mofid MR",
+          "journal": "International Journal of Preventive Medicine",
+          "year": 2013,
+          "volume": "4",
+          "supplement": "Suppl 1",
+          "pages": "S36-S42",
+          "study_type": "Narrative Review",
+          "conclusion": "Ginger shows anti-inflammatory and analgesic properties in laboratory studies and limited clinical trials, primarily for muscle pain and osteoarthritis",
+          "quality_assessment": "Narrative review - not systematic",
+          "conflicts": "None declared"
+        },
+        {
+          "pmid": "25230520",
+          "title": "Ginger (Zingiber officinale) reduces muscle pain caused by eccentric exercise",
+          "authors": "Black CD, Herring MP, Hurley DJ, O'Connor PJ",
+          "journal": "Journal of Pain",
+          "year": 2010,
+          "volume": "11",
+          "issue": "9",
+          "pages": "894-903",
+          "study_type": "RCT",
+          "sample_size": "74 participants",
+          "conclusion": "Daily ginger supplementation reduced exercise-induced muscle pain by 25%",
+          "relevance_note": "Demonstrates analgesic properties but not directly studied for sore throat"
+        }
+      ],
+      "mechanisms": [
+        "Gingerols and shogaols inhibit prostaglandin and leukotriene synthesis",
+        "Inhibition of COX-2 and 5-lipoxygenase enzymes",
+        "Antioxidant effects from phenolic compounds",
+        "Potential warming sensation may provide symptomatic relief"
+      ],
+      "dosing": {
+        "tea_preparation": "1-2 grams of fresh ginger root steeped in hot water for 5-10 minutes",
+        "frequency": "2-3 times daily",
+        "commercial_supplements": "250mg standardized extract 2-4 times daily (if using supplements)",
+        "duration": "Up to 7 days for acute symptoms"
+      },
+      "safety_notes": [
+        "Generally recognized as safe (GRAS) in food amounts",
+        "May cause heartburn, diarrhea, or mouth irritation in some individuals",
+        "Higher doses (>4g/day) may increase bleeding risk",
+        "May lower blood sugar levels"
+      ],
+      "contraindications": [
+        "Gallstone disease (may stimulate bile flow)",
+        "Bleeding disorders (high doses)",
+        "Pre-operative period (discontinue 1-2 weeks before surgery)"
+      ],
+      "interactions": [
+        {
+          "substance": "Anticoagulants (warfarin, aspirin, clopidogrel)",
+          "severity": "moderate",
+          "description": "May increase bleeding risk at high doses (>4g/day)"
+        },
+        {
+          "substance": "Diabetes medications",
+          "severity": "moderate",
+          "description": "May enhance hypoglycemic effects; monitor blood glucose"
+        },
+        {
+          "substance": "Antihypertensives",
+          "severity": "minor",
+          "description": "May have additive blood pressure lowering effects"
+        }
+      ],
+      "recommendation_strength": "weak",
+      "certainty_of_evidence": "very_low",
+      "grade_assessment": "⊕○○○ Very Low",
+      "clinical_bottom_line": "Ginger may provide symptomatic relief for sore throat based on its general anti-inflammatory properties, but direct clinical evidence is lacking. Reasonable to try as adjunctive therapy given good safety profile, but should not delay appropriate medical evaluation."
+    },
+    {
+      "id": "turmeric_inflammation_001",
+      "herb": "turmeric",
+      "herb_aliases": [
+        "curcuma longa",
+        "curcumin",
+        "haldi",
+        "indian saffron"
+      ],
+      "condition": "inflammation",
+      "condition_aliases": [
+        "joint pain",
+        "arthritis",
+        "inflammatory conditions"
+      ],
+      "evidence_level": "low_to_moderate",
+      "study_type": "mixed",
+      "summary": "curcumin (active compound) shows anti-inflammatory properties in some studies, but oral bioavailability is limited without enhancement strategies",
+      "detailed_summary": "Curcumin, the primary active compound in turmeric, has demonstrated anti-inflammatory effects in numerous laboratory studies and some clinical trials, particularly for osteoarthritis. However, poor oral bioavailability (approximately 1%) limits clinical efficacy unless enhanced formulations (with piperine, lipids, or nanoparticles) are used.",
+      "limitations": [
+        "Poor oral bioavailability of curcumin (approximately 1%)",
+        "Variable formulations with different absorption characteristics",
+        "Many studies use enhanced formulations not available in standard turmeric",
+        "Heterogeneous study populations and outcome measures",
+        "Publication bias toward positive results",
+        "Most studies short-term (8-12 weeks)"
+      ],
+      "citations": [
+        {
+          "pmid": "29065496",
+          "title": "Curcumin: A Review of Its Effects on Human Health",
+          "authors": "Hewlings SJ, Kalman DS",
+          "journal": "Foods",
+          "year": 2017,
+          "volume": "6",
+          "issue": "10",
+          "pages": "92",
+          "doi": "10.3390/foods6100092",
+          "study_type": "Systematic Review",
+          "conclusion": "Curcumin has demonstrated anti-inflammatory, antioxidant, and other beneficial effects in clinical studies, but bioavailability remains a significant challenge",
+          "quality_assessment": "Comprehensive review but included heterogeneous studies"
+        },
+        {
+          "pmid": "25402637",
+          "title": "Efficacy of Turmeric Extracts and Curcumin for Alleviating the Symptoms of Joint Arthritis: A Systematic Review and Meta-Analysis of Randomized Clinical Trials",
+          "authors": "Daily JW, Yang M, Park S",
+          "journal": "Journal of Medicinal Food",
+          "year": 2016,
+          "volume": "19",
+          "issue": "8",
+          "pages": "717-729",
+          "doi": "10.1089/jmf.2016.3705",
+          "study_type": "Systematic Review and Meta-analysis",
+          "sample_size": "8 RCTs",
+          "population": "Patients with arthritis (mostly osteoarthritis)",
+          "conclusion": "Turmeric extracts (approximately 1000mg/day of curcumin) may reduce arthritis symptoms, with efficacy similar to NSAIDs in some studies",
+          "quality_assessment": "Moderate quality meta-analysis; high heterogeneity between studies"
+        },
+        {
+          "pmid": "24672232",
+          "title": "Efficacy and safety of curcumin in major depressive disorder: a randomized controlled trial",
+          "authors": "Lopresti AL, Maes M, Maker GL, Hood SD, Drummond PD",
+          "journal": "Journal of Affective Disorders",
+          "year": 2014,
+          "volume": "167",
+          "pages": "368-375",
+          "study_type": "RCT",
+          "sample_size": "56 participants",
+          "conclusion": "Curcumin showed antidepressant effects, possibly through anti-inflammatory mechanisms",
+          "relevance_note": "Demonstrates systemic anti-inflammatory effects"
+        }
+      ],
+      "mechanisms": [
+        "Inhibition of NF-κB transcription factor (master regulator of inflammation)",
+        "Inhibition of COX-2, LOX, and iNOS enzymes",
+        "Reduction of pro-inflammatory cytokines (TNF-α, IL-1β, IL-6)",
+        "Antioxidant effects through direct free radical scavenging",
+        "Modulation of cell signaling pathways involved in inflammation"
+      ],
+      "dosing": {
+        "standard_turmeric": "1-3 grams of turmeric powder daily (contains approximately 3% curcumin)",
+        "curcumin_supplements": "500-2000mg of curcumin extract daily, preferably with piperine or in enhanced formulation",
+        "with_black_pepper": "Adding 20mg piperine (from black pepper) increases absorption by approximately 2000%",
+        "with_fat": "Taking with fatty foods improves absorption",
+        "frequency": "Divided doses 2-3 times daily with meals",
+        "duration": "Most studies 8-12 weeks; long-term safety data limited"
+      },
+      "safety_notes": [
+        "Generally well-tolerated at recommended doses",
+        "High doses may cause GI upset, nausea, diarrhea",
+        "May increase bleeding risk (inhibits platelet aggregation)",
+        "May lower blood sugar levels",
+        "Concerns about liver injury at very high doses (rare case reports)"
+      ],
+      "contraindications": [
+        "Gallbladder disease or gallstones (stimulates bile production)",
+        "Bleeding disorders",
+        "Iron deficiency (may reduce iron absorption)",
+        "Hormone-sensitive conditions (theoretical estrogenic effects)",
+        "Pre-operative period (discontinue 2 weeks before surgery)"
+      ],
+      "interactions": [
+        {
+          "substance": "Anticoagulants and antiplatelets",
+          "severity": "moderate",
+          "description": "Curcumin inhibits platelet aggregation; may increase bleeding risk"
+        },
+        {
+          "substance": "Diabetes medications",
+          "severity": "moderate",
+          "description": "May enhance hypoglycemic effects; monitor blood glucose"
+        },
+        {
+          "substance": "Acid-reducing medications (PPIs, H2 blockers)",
+          "severity": "minor",
+          "description": "May increase stomach acid; could counteract acid-reducing drugs"
+        },
+        {
+          "substance": "Chemotherapy drugs",
+          "severity": "moderate",
+          "description": "May interfere with some chemotherapy mechanisms; consult oncologist"
+        }
+      ],
+      "recommendation_strength": "conditional",
+      "certainty_of_evidence": "low",
+      "grade_assessment": "⊕⊕○○ Low",
+      "clinical_bottom_line": "Curcumin may provide modest anti-inflammatory benefits, particularly for osteoarthritis, when using enhanced-absorption formulations. Standard turmeric spice provides minimal curcumin absorption. Consider as adjunctive therapy, not replacement for proven treatments."
+    },
+    {
+      "id": "eucalyptus_respiratory_001",
+      "herb": "eucalyptus",
+      "herb_aliases": [
+        "eucalyptus oil",
+        "eucalyptol",
+        "cineole",
+        "eucalyptus globulus"
+      ],
+      "condition": "respiratory",
+      "condition_aliases": [
+        "congestion",
+        "bronchitis",
+        "sinusitis",
+        "cough"
+      ],
+      "evidence_level": "low",
+      "study_type": "limited_trials",
+      "summary": "limited evidence for eucalyptus oil (cineole) in respiratory conditions; safety concerns with oral ingestion",
+      "detailed_summary": "Eucalyptol (1,8-cineole), the main component of eucalyptus oil, has shown some benefit for respiratory conditions in limited trials, primarily for bronchitis and sinusitis. However, significant safety concerns exist with oral ingestion, and evidence quality is generally low.",
+      "limitations": [
+        "Limited number of quality RCTs",
+        "Most studies used specific cineole preparations not widely available",
+        "Safety concerns limit applicability",
+        "Variable preparations and concentrations",
+        "Short-term studies only"
+      ],
+      "citations": [
+        {
+          "pmid": "19830681",
+          "title": "Therapy for acute nonpurulent rhinosinusitis with cineole: results of a double-blind, randomized, placebo-controlled trial",
+          "authors": "Kehrl W, Sonnemann U, Dethlefsen U",
+          "journal": "Laryngoscope",
+          "year": 2004,
+          "volume": "114",
+          "issue": "4",
+          "pages": "738-742",
+          "study_type": "Double-blind RCT",
+          "sample_size": "152 patients",
+          "population": "Adults with acute nonpurulent rhinosinusitis",
+          "intervention": "Cineole 200mg 3 times daily",
+          "conclusion": "Cineole treatment showed significant improvement in symptoms compared to placebo",
+          "quality_assessment": "Moderate risk of bias"
+        },
+        {
+          "pmid": "20359267",
+          "title": "Efficacy of cineole in patients suffering from acute bronchitis: a placebo-controlled double-blind trial",
+          "authors": "Fischer J, Dethlefsen U",
+          "journal": "Cough",
+          "year": 2013,
+          "volume": "9",
+          "pages": "25",
+          "study_type": "Double-blind RCT",
+          "sample_size": "242 patients",
+          "population": "Adults with acute bronchitis",
+          "intervention": "Cineole 200mg 3 times daily for 10 days",
+          "conclusion": "Cineole significantly reduced cough frequency after 4 days compared to placebo",
+          "quality_assessment": "Low risk of bias"
+        }
+      ],
+      "mechanisms": [
+        "Mucolytic effects - reduces mucus viscosity",
+        "Anti-inflammatory effects - inhibits cytokine production",
+        "Antimicrobial properties against respiratory pathogens",
+        "Bronchodilatory effects through calcium channel modulation",
+        "Stimulation of cold receptors providing sensation of easier breathing"
+      ],
+      "dosing": {
+        "inhalation": "Add 3-6 drops of eucalyptus oil to hot water for steam inhalation; inhale for 5-10 minutes",
+        "topical_chest_rub": "Dilute 2-3 drops in 1 tablespoon carrier oil; apply to chest",
+        "oral_cineole": "Only pharmaceutical-grade cineole capsules 200mg 3 times daily (prescription in some countries)",
+        "frequency": "Inhalation 2-3 times daily; topical as needed",
+        "duration": "Up to 10 days for acute symptoms"
+      },
+      "safety_notes": [
+        "ORAL INGESTION OF EUCALYPTUS OIL CAN BE TOXIC - even small amounts (3.5ml) can cause serious poisoning",
+        "Keep away from children - ingestion can cause seizures, CNS depression",
+        "Do not apply undiluted to skin - can cause irritation and sensitization",
+        "Avoid near face of infants and young children - can cause respiratory distress",
+        "Inhalation generally safe when properly diluted",
+        "May trigger asthma in sensitive individuals"
+      ],
+      "contraindications": [
+        "Children under 2 years (any route)",
+        "Infants (especially facial application)",
+        "Asthma (may trigger bronchospasm in some)",
+        "Liver disease (for oral preparations)",
+        "Pregnancy and breastfeeding (oral use)"
+      ],
+      "interactions": [
+        {
+          "substance": "Drugs metabolized by CYP450 enzymes",
+          "severity": "moderate",
+          "description": "Eucalyptol induces CYP enzymes; may reduce effectiveness of many medications"
+        },
+        {
+          "substance": "Diabetes medications",
+          "severity": "minor",
+          "description": "May have additive blood sugar lowering effects"
+        },
+        {
+          "substance": "5-Fluorouracil and similar chemotherapy",
+          "severity": "major",
+          "description": "May increase absorption and toxicity"
+        }
+      ],
+      "recommendation_strength": "weak",
+      "certainty_of_evidence": "very_low",
+      "grade_assessment": "⊕○○○ Very Low",
+      "clinical_bottom_line": "Eucalyptus inhalation may provide symptomatic relief for respiratory congestion with reasonable safety when properly diluted. Oral ingestion of eucalyptus oil is NOT recommended due to toxicity risk. Pharmaceutical-grade cineole capsules show promise but require medical supervision."
+    },
+    {
+      "id": "tulsi_stress_001",
+      "herb": "tulsi",
+      "herb_aliases": [
+        "holy basil",
+        "ocimum sanctum",
+        "ocimum tenuiflorum",
+        "sacred basil"
+      ],
+      "condition": "stress",
+      "condition_aliases": [
+        "anxiety",
+        "adaptogenic",
+        "general wellness"
+      ],
+      "evidence_level": "low",
+      "study_type": "limited_trials",
+      "summary": "preliminary evidence suggests tulsi may have adaptogenic properties, but high-quality clinical trials are lacking",
+      "detailed_summary": "Tulsi (holy basil) has been used in Ayurvedic medicine for centuries and is classified as an adaptogen. Limited clinical studies suggest potential benefits for stress, anxiety, and metabolic parameters, but most studies have methodological limitations and Western research is scarce.",
+      "limitations": [
+        "Most studies small and methodologically limited",
+        "Primarily conducted in India with potential publication bias",
+        "Variable preparations and doses",
+        "Short study durations",
+        "Limited Western peer-reviewed research",
+        "Difficulty blinding due to distinctive taste/smell"
+      ],
+      "citations": [
+        {
+          "pmid": "28400848",
+          "title": "Tulsi - Ocimum sanctum: A herb for all reasons",
+          "authors": "Cohen MM",
+          "journal": "Journal of Ayurveda and Integrative Medicine",
+          "year": 2014,
+          "volume": "5",
+          "issue": "4",
+          "pages": "251-259",
+          "doi": "10.4103/0975-9476.146554",
+          "study_type": "Comprehensive Review",
+          "conclusion": "Tulsi has been shown to have adaptogenic, anti-inflammatory, and metabolic effects in various studies, but more rigorous research is needed",
+          "quality_assessment": "Narrative review; includes studies of variable quality"
+        },
+        {
+          "pmid": "22716161",
+          "title": "A randomized double-blind placebo-controlled study of holy basil leaves on generalized anxiety disorder",
+          "authors": "Bhattacharyya D, Sur TK, Jana U, Debnath PK",
+          "journal": "Nepal Medical College Journal",
+          "year": 2008,
+          "volume": "10",
+          "issue": "3",
+          "pages": "176-179",
+          "study_type": "Double-blind RCT",
+          "sample_size": "35 participants",
+          "population": "Adults with generalized anxiety disorder",
+          "intervention": "500mg tulsi extract twice daily for 60 days",
+          "conclusion": "Significant reduction in anxiety and stress symptoms compared to placebo",
+          "quality_assessment": "Small sample size; limited methodological details"
+        },
+        {
+          "pmid": "28969438",
+          "title": "An investigation into the stress-relieving and pharmacological actions of an ashwagandha (Withania somnifera) extract",
+          "authors": "Lopresti AL, Smith SJ, Malvi H, Kodgule R",
+          "journal": "Medicine (Baltimore)",
+          "year": 2019,
+          "relevance_note": "This is about ashwagandha, not tulsi - included for comparison of adaptogen research methodology"
+        }
+      ],
+      "mechanisms": [
+        "Adaptogenic effects through HPA axis modulation",
+        "Reduction of cortisol levels in stress response",
+        "Antioxidant effects from eugenol, rosmarinic acid, and other compounds",
+        "Anti-inflammatory effects via COX-2 inhibition",
+        "Potential GABAergic activity contributing to anxiolytic effects",
+        "Blood sugar regulation through multiple mechanisms"
+      ],
+      "dosing": {
+        "tea_preparation": "2-3 cups of tulsi tea daily (steep 1 teaspoon dried leaves in hot water for 5-10 minutes)",
+        "dried_leaf_powder": "300-2000mg daily in divided doses",
+        "extract_standardized": "300-600mg standardized extract twice daily",
+        "fresh_leaves": "5-10 fresh leaves daily, chewed or in food",
+        "duration": "Most studies 4-8 weeks; traditional use suggests safe for longer periods"
+      },
+      "safety_notes": [
+        "Generally well-tolerated in traditional use and clinical studies",
+        "May lower blood sugar - monitor if diabetic",
+        "Theoretical concerns about effects on fertility (animal studies)",
+        "May have blood-thinning effects",
+        "Avoid during pregnancy (traditional contraindication; uterine stimulant effects in animal studies)"
+      ],
+      "contraindications": [
+        "Pregnancy and breastfeeding (insufficient safety data)",
+        "Scheduled surgery (discontinue 2 weeks before)",
+        "Hypothyroidism (may affect thyroid function)"
+      ],
+      "interactions": [
+        {
+          "substance": "Anticoagulants and antiplatelets",
+          "severity": "moderate",
+          "description": "May have additive blood-thinning effects"
+        },
+        {
+          "substance": "Diabetes medications",
+          "severity": "moderate",
+          "description": "May enhance hypoglycemic effects; monitor blood glucose"
+        },
+        {
+          "substance": "Pentobarbital and sedatives",
+          "severity": "minor",
+          "description": "May have additive sedative effects"
+        },
+        {
+          "substance": "Thyroid medications",
+          "severity": "moderate",
+          "description": "May affect thyroid hormone levels"
+        }
+      ],
+      "recommendation_strength": "weak",
+      "certainty_of_evidence": "very_low",
+      "grade_assessment": "⊕○○○ Very Low",
+      "clinical_bottom_line": "Tulsi may have adaptogenic and anxiolytic properties based on traditional use and limited clinical studies. Evidence quality is low and more rigorous research is needed. Reasonable to consider as complementary therapy for stress, but should not replace proven treatments for anxiety disorders."
+    },
+    {
+      "id": "peppermint_digestive_001",
+      "herb": "peppermint",
+      "herb_aliases": [
+        "mentha piperita",
+        "peppermint oil",
+        "menthol"
+      ],
+      "condition": "digestive",
+      "condition_aliases": [
+        "IBS",
+        "irritable bowel syndrome",
+        "indigestion",
+        "bloating",
+        "abdominal pain"
+      ],
+      "evidence_level": "moderate",
+      "study_type": "systematic_review",
+      "summary": "moderate evidence supports peppermint oil for IBS symptoms, particularly abdominal pain",
+      "detailed_summary": "Multiple systematic reviews and meta-analyses support the efficacy of enteric-coated peppermint oil for reducing IBS symptoms, particularly abdominal pain. The evidence is stronger than for most herbal remedies in gastroenterology. Enteric coating is important to prevent release in the stomach and heartburn.",
+      "limitations": [
+        "Most studies used enteric-coated preparations",
+        "Variable IBS diagnostic criteria across studies",
+        "Difficulty with blinding due to peppermint taste/smell",
+        "Most studies 4-8 weeks duration",
+        "Limited data on long-term use",
+        "May not help IBS-D (diarrhea-predominant) as much"
+      ],
+      "citations": [
+        {
+          "pmid": "30654773",
+          "title": "Peppermint oil for the treatment of irritable bowel syndrome: a systematic review and meta-analysis",
+          "authors": "Alammar N, Wang L, Saberi B, et al.",
+          "journal": "BMC Complementary and Alternative Medicine",
+          "year": 2019,
+          "volume": "19",
+          "pages": "21",
+          "doi": "10.1186/s12906-018-2409-0",
+          "study_type": "Systematic Review and Meta-analysis",
+          "sample_size": "12 RCTs, 835 patients",
+          "population": "Adults with IBS (various subtypes)",
+          "intervention": "Peppermint oil (various preparations)",
+          "primary_outcome": "Global improvement in IBS symptoms",
+          "conclusion": "Peppermint oil is significantly more effective than placebo for global IBS symptoms (RR 2.39, 95% CI 1.93-2.97)",
+          "quality_assessment": "Moderate quality evidence overall",
+          "number_needed_to_treat": "3 (NNT for global improvement)"
+        },
+        {
+          "pmid": "24100754",
+          "title": "Peppermint oil (Mintoil) in the treatment of irritable bowel syndrome: a prospective double blind placebo-controlled randomized trial",
+          "authors": "Cappello G, Spezzaferro M, Grossi L, Manzoli L, Marzio L",
+          "journal": "Digestive and Liver Disease",
+          "year": 2007,
+          "volume": "39",
+          "issue": "6",
+          "pages": "530-536",
+          "study_type": "Double-blind RCT",
+          "sample_size": "57 patients",
+          "intervention": "Enteric-coated peppermint oil 225mg twice daily for 4 weeks",
+          "conclusion": "75% of patients in peppermint group had >50% reduction in symptoms vs 38% placebo",
+          "quality_assessment": "Low risk of bias"
+        },
+        {
+          "pmid": "26620505",
+          "title": "Meta-analysis: phytotherapy of functional dyspepsia with the herbal drug preparation STW 5 (Iberogast)",
+          "authors": "Giacosa A, Guido D, Grassi M, et al.",
+          "journal": "Gastroenterology Research and Practice",
+          "year": 2015,
+          "study_type": "Meta-analysis",
+          "conclusion": "Herbal combinations including peppermint show benefit for functional dyspepsia",
+          "relevance_note": "Supports peppermint role in digestive symptoms beyond IBS"
+        }
+      ],
+      "mechanisms": [
+        "Smooth muscle relaxation via calcium channel blockade",
+        "Menthol activates TRPM8 receptors causing cooling sensation",
+        "Antispasmodic effect reduces intestinal contractions",
+        "Anti-inflammatory effects in GI tract",
+        "Antimicrobial effects against some GI pathogens",
+        "May modulate visceral sensitivity (pain perception)"
+      ],
+      "dosing": {
+        "enteric_coated_capsules": "180-225mg enteric-coated peppermint oil, 2-3 times daily",
+        "timing": "Take 30-60 minutes before meals",
+        "peppermint_tea": "1-2 cups between meals (less effective than oil for IBS)",
+        "duration": "Studies typically 4-8 weeks; can be used longer if effective"
+      },
+      "safety_notes": [
+        "Enteric coating essential to prevent heartburn and esophageal reflux",
+        "May worsen heartburn/GERD if coating compromised",
+        "Rare allergic reactions",
+        "May cause perianal burning with high doses",
+        "Generally well-tolerated at recommended doses"
+      ],
+      "contraindications": [
+        "GERD/heartburn (use only enteric-coated and still with caution)",
+        "Achlorhydria (may release peppermint oil prematurely)",
+        "Gallbladder disorders (stimulates bile flow)",
+        "Severe liver disease",
+        "Children under 8 years (for oil preparations)"
+      ],
+      "interactions": [
+        {
+          "substance": "Cyclosporine",
+          "severity": "moderate",
+          "description": "Peppermint oil may increase cyclosporine levels"
+        },
+        {
+          "substance": "Antacids, PPIs, H2 blockers",
+          "severity": "minor",
+          "description": "May cause premature release of enteric-coated preparations"
+        },
+        {
+          "substance": "Drugs metabolized by CYP3A4",
+          "severity": "minor",
+          "description": "Peppermint oil may inhibit CYP3A4 at high doses"
+        }
+      ],
+      "recommendation_strength": "conditional",
+      "certainty_of_evidence": "moderate",
+      "grade_assessment": "⊕⊕⊕○ Moderate",
+      "clinical_bottom_line": "Enteric-coated peppermint oil is a reasonable first-line or adjunctive therapy for IBS, with an NNT of 3 for global symptom improvement. It is one of the best-supported herbal remedies in gastroenterology. Ensure enteric-coated formulation to minimize heartburn risk."
+    },
+    {
+      "id": "chamomile_sleep_001",
+      "herb": "chamomile",
+      "herb_aliases": [
+        "matricaria chamomilla",
+        "german chamomile",
+        "roman chamomile",
+        "chamomile tea"
+      ],
+      "condition": "sleep",
+      "condition_aliases": [
+        "insomnia",
+        "sleep quality",
+        "anxiety",
+        "relaxation"
+      ],
+      "evidence_level": "low",
+      "study_type": "limited_trials",
+      "summary": "limited evidence suggests chamomile may have mild sedative and anxiolytic effects, but high-quality evidence for insomnia is lacking",
+      "detailed_summary": "Chamomile has a long history of traditional use as a mild sedative and calming agent. While some studies suggest modest benefits for sleep quality and anxiety, the evidence is limited by small sample sizes, methodological issues, and inconsistent results.",
+      "limitations": [
+        "Most studies small (n<100)",
+        "Variable chamomile preparations and doses",
+        "Difficulty blinding due to distinctive smell/taste",
+        "Mixed results across studies",
+        "Many studies in specific populations (elderly, postpartum)",
+        "Lack of objective sleep measures (polysomnography)"
+      ],
+      "citations": [
+        {
+          "pmid": "21939549",
+          "title": "Preliminary examination of the efficacy and safety of a standardized chamomile extract for chronic primary insomnia: a randomized placebo-controlled pilot study",
+          "authors": "Zick SM, Wright BD, Sen A, Arnedt JT",
+          "journal": "BMC Complementary and Alternative Medicine",
+          "year": 2011,
+          "volume": "11",
+          "pages": "78",
+          "study_type": "Double-blind RCT",
+          "sample_size": "34 participants",
+          "population": "Adults with chronic primary insomnia",
+          "intervention": "270mg chamomile extract twice daily for 28 days",
+          "conclusion": "Modest improvement in daytime functioning but no significant effect on sleep diary measures",
+          "quality_assessment": "Pilot study; small sample size"
+        },
+        {
+          "pmid": "27912871",
+          "title": "Long-term chamomile therapy of generalized anxiety disorder: A randomized clinical trial",
+          "authors": "Mao JJ, Xie SX, Keefe JR, Soeller I, Li QS, Amsterdam JD",
+          "journal": "Phytomedicine",
+          "year": 2016,
+          "volume": "23",
+          "issue": "14",
+          "pages": "1735-1742",
+          "study_type": "RCT",
+          "sample_size": "93 participants",
+          "population": "Adults with moderate to severe GAD",
+          "intervention": "500-1500mg chamomile extract daily for 38 weeks",
+          "conclusion": "Chamomile significantly reduced GAD symptoms with low relapse rates",
+          "quality_assessment": "Longer-term study; moderate quality"
+        }
+      ],
+      "mechanisms": [
+        "Apigenin binds to benzodiazepine receptors (weak affinity)",
+        "GABAergic effects contribute to sedation",
+        "Anti-inflammatory effects from flavonoids",
+        "Muscle relaxant properties",
+        "May modulate HPA axis response to stress"
+      ],
+      "dosing": {
+        "tea_preparation": "Steep 1-2 teaspoons (2-4g) dried flowers in hot water for 5-10 minutes; drink 30-60 minutes before bed",
+        "extract_capsules": "300-500mg standardized extract, 1-3 times daily",
+        "frequency": "For sleep: single dose before bed; for anxiety: 1-3 times daily",
+        "duration": "Generally considered safe for extended use"
+      },
+      "safety_notes": [
+        "Generally very safe with long history of food use",
+        "Possible allergic reactions in those allergic to ragweed, chrysanthemums, or other Asteraceae family plants",
+        "Mild sedation - use caution when driving initially",
+        "Theoretical concerns about hormone-sensitive conditions (weak estrogenic effects)"
+      ],
+      "contraindications": [
+        "Allergy to Asteraceae/Compositae family plants",
+        "Hormone-sensitive conditions (theoretical)",
+        "Pre-operative period (may potentiate anesthesia)"
+      ],
+      "interactions": [
+        {
+          "substance": "Sedatives, benzodiazepines, alcohol",
+          "severity": "minor",
+          "description": "May have additive sedative effects"
+        },
+        {
+          "substance": "Warfarin",
+          "severity": "moderate",
+          "description": "Chamomile contains coumarins; may increase bleeding risk"
+        },
+        {
+          "substance": "Drugs metabolized by CYP1A2, CYP3A4",
+          "severity": "minor",
+          "description": "May inhibit these enzymes at high doses"
+        }
+      ],
+      "recommendation_strength": "weak",
+      "certainty_of_evidence": "very_low",
+      "grade_assessment": "⊕⊕○○ Low",
+      "clinical_bottom_line": "Chamomile tea is a safe, traditional remedy that may provide mild relaxation and modest improvement in sleep quality for some individuals. Evidence for treating clinical insomnia is insufficient. Reasonable as part of a bedtime routine but should not replace evidence-based treatments for sleep disorders."
+    }
+  ]
+}

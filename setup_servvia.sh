@@ -1,6 +1,5 @@
-#Start script for macOS
 #!/bin/bash
-echo "🚀 Setting up ServVia..."
+echo "🚀 Setting up Servvia..."
 
 # Create backend structure
 mkdir -p servvia-backend/servvia/{models,serializers,views,management/commands}

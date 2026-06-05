@@ -1,9 +1,9 @@
-from rest_framework. decorators import action
+from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework. viewsets import GenericViewSet
+from rest_framework.viewsets import GenericViewSet
 from rest_framework import status
 from django.utils import timezone
-from . models import UserProfile
+from .models import UserProfile
 import logging
 
 logger = logging.getLogger(__name__)
@@ -19,8 +19,8 @@ class UserProfileViewSet(GenericViewSet):
         if not email:
             return Response({'error': True, 'message': 'Email required'}, status=400)
         
-        try: 
-            profile = UserProfile.objects. get(email=email)
+        try:
+            profile = UserProfile.objects.get(email=email)
             profile.last_login = timezone.now()
             profile.save()
             
@@ -28,13 +28,11 @@ class UserProfileViewSet(GenericViewSet):
                 'exists': True,
                 'is_complete': profile.is_profile_complete,
                 'profile': {
-                    'email': profile. email,
+                    'email': profile.email,
                     'first_name': profile.first_name,
-                    'age': profile.age,
-                    'sex': profile.sex,
-                    'allergies': profile. allergies,
+                    'allergies': profile.allergies,
                     'medical_conditions': profile.medical_conditions,
-                    'current_medications':  profile.current_medications,
+                    'current_medications': profile.current_medications,
                 }
             })
         except UserProfile.DoesNotExist:
@@ -45,7 +43,7 @@ class UserProfileViewSet(GenericViewSet):
         """Get profile data - NEW endpoint for frontend"""
         email = request.data.get('email') or request.data.get('email_id')
         
-        if not email: 
+        if not email:
             return Response({'error': True, 'message': 'Email required'}, status=400)
         
         try:
@@ -53,13 +51,11 @@ class UserProfileViewSet(GenericViewSet):
             return Response({
                 'exists': True,
                 'profile': {
-                    'email':  profile.email,
+                    'email': profile.email,
                     'first_name': profile.first_name,
-                    'age':  profile.age,
-                    'sex': profile.sex,
                     'allergies': profile.allergies,
                     'medical_conditions': profile.medical_conditions,
-                    'current_medications':  profile.current_medications,
+                    'current_medications': profile.current_medications,
                 }
             })
         except UserProfile.DoesNotExist:
@@ -68,35 +64,21 @@ class UserProfileViewSet(GenericViewSet):
     @action(detail=False, methods=['post'])
     def save_profile(self, request):
         """Save profile - NEW endpoint for frontend"""
-        email = request. data.get('email') or request.data.get('email_id')
+        email = request.data.get('email') or request.data.get('email_id')
         first_name = request.data.get('first_name', '')
-        age = request.data.get('age')
-        sex = request.data. get('sex', '')
-        allergies = request. data.get('allergies', '')
-        medical_conditions = request. data.get('medical_conditions', '')
+        allergies = request.data.get('allergies', '')
+        medical_conditions = request.data.get('medical_conditions', '')
         current_medications = request.data.get('current_medications', '')
         
         if not email:
             return Response({'error': True, 'message': 'Email required'}, status=400)
-        
-        # Validate and convert age
-        age_value = None
-        if age:
-            try:
-                age_value = int(age)
-                if age_value < 0 or age_value > 150:
-                    age_value = None
-            except (ValueError, TypeError):
-                age_value = None
         
         try:
             profile, created = UserProfile.objects.update_or_create(
                 email=email,
                 defaults={
                     'first_name': first_name,
-                    'age': age_value,
-                    'sex': sex if sex else None,
-                    'allergies':  allergies,
+                    'allergies': allergies,
                     'medical_conditions': medical_conditions,
                     'current_medications': current_medications,
                 }
@@ -105,24 +87,22 @@ class UserProfileViewSet(GenericViewSet):
             profile.mark_profile_complete()
             
             action_text = 'created' if created else 'updated'
-            logger.info(f"Profile {action_text} for {email} (age: {age_value}, sex: {sex})")
+            logger.info(f"Profile {action_text} for {email}")
             
             return Response({
                 'success': True,
                 'message': f'Profile {action_text} successfully',
                 'created': created,
-                'profile':  {
+                'profile': {
                     'email': profile.email,
                     'first_name': profile.first_name,
-                    'age': profile.age,
-                    'sex': profile.sex,
                     'allergies': profile.allergies,
                     'medical_conditions': profile.medical_conditions,
                     'current_medications': profile.current_medications,
                 }
             })
         except Exception as e:
-            logger.error(f"Profile error:  {e}", exc_info=True)
+            logger.error(f"Profile error: {e}", exc_info=True)
             return Response({'error': True, 'message': str(e)}, status=500)
     
     @action(detail=False, methods=['post'])

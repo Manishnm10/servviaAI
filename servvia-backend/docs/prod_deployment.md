@@ -2,7 +2,7 @@
 
 ## Background
 
-This document describes the process of installing the FarmStack steward on the steward's infrastructure. Once the setup is complete, it also provides a brief on how the admin can onboard participants or add datasets.
+This document describes the process of installing the ServVia Backend steward on the steward's infrastructure. Once the setup is complete, it also provides a brief on how the admin can onboard participants or add datasets.
 
 ## Infrastructure Requirements
 
@@ -47,10 +47,10 @@ Follow these steps to configure the Steward application on the infrastructure:
     SSH -i *.pem user@IP
     ```
 
-2. Clone the Installer repository (FarmStack Installer).
+2. Clone the Installer repository (ServVia Backend Installer).
 
     ```bash
-    git clone https://github.com/digitalgreenorg/fs-install
+    git clone fs-install
     ```
 
 3. Change/move to the `fs-install` directory.

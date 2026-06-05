@@ -4,13 +4,14 @@ import tempfile
 
 import requests
 from docx import Document
-from langchain_community. document_loaders import (
+from langchain_community.document_loaders import (
     CSVLoader,
     PyMuPDFLoader,
     TextLoader,
     UnstructuredHTMLLoader,
     UnstructuredWordDocumentLoader,
 )
+
 from core.constants import Constants
 
 LOGGING = logging.getLogger(__name__)

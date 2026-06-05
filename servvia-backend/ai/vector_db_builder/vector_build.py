@@ -9,10 +9,8 @@ import requests
 from bs4 import BeautifulSoup
 from django.db import transaction
 from langchain_community.document_loaders import JSONLoader, PyMuPDFLoader
-from langchain_classic.text_splitter import RecursiveCharacterTextSplitter  # CHANGED
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from sklearn.metrics.pairwise import cosine_similarity
-from unstructured.partition.pdf import partition_pdf
-from unstructured.staging.base import elements_to_dicts
 
 from ai.open_ai_utils import (
     create_embedding,
@@ -196,6 +194,8 @@ def calculate_cosine_distances(sentences):
 
 def document_extraction(pdf_path : str, extract_image : bool, extract_image_folder : str):
     # Extracts the elements from the PDF
+    from unstructured.partition.pdf import partition_pdf
+    from unstructured.staging.base import elements_to_dicts
     file_path = pdf_path.split('http://localhost:8000/')[-1]
     LOGGING.info(f"Extracting pdf with unstructured....: {'.'+file_path}")
     try:

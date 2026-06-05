@@ -8,7 +8,7 @@ from django.db import models
 from django.db.models import Subquery
 from django.db.models.functions import Cast
 from dotenv import load_dotenv
-from langchain_community.embeddings import OpenAIEmbeddings
+from langchain_openai import OpenAIEmbeddings
 from pgvector.django import CosineDistance
 from qdrant_client import QdrantClient
 from qdrant_client.http.models import (

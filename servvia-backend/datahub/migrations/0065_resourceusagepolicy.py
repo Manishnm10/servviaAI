@@ -8,7 +8,7 @@ import uuid
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("datahub", "0062_alter_subcategory_name"),
+        ("datahub", "0064_rename_id_langchainpgcollection_uuid_and_more"),
     ]
 
     operations = [

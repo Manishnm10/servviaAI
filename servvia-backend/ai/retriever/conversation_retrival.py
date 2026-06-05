@@ -4,7 +4,8 @@ from ai.open_ai_utils import load_vector_db
 from ai.retriever.chain_builder import ChainBuilder
 from ai.utils import chat_history_formated
 from core.constants import Constants
-from langchain_core. prompts import PromptTemplate
+from langchain_core.prompts import PromptTemplate
+
 
 class ConversationRetrival:
 

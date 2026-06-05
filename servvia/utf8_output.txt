@@ -1,0 +1,173 @@
+--- STEP 1: IDENTIFY ---
+{
+  "status": "profile_new",
+  "pending_report_id": 28,
+  "identity": {
+    "patient_name": "SELF Received On",
+    "age": 49,
+    "sex": null,
+    "patient_id": "PDJ1261632",
+    "srf_id": "Ref",
+    "report_date": "12/03/2026"
+  },
+  "message": "No patient profiles found. Please create one to continue."
+}
+
+--- STEP 2: CONFIRM ---
+{
+  "success": true,
+  "report_id": 28,
+  "profile_id": 1,
+  "profile_label": "Dad Health",
+  "test_type": "Mixed",
+  "summary": "## Clinical Co-Pilot Report\n\n### Report Overview\n- **Test Type:** Mixed\n- **Report Date:** 12/03/2026\n- **Total Parameters:** 9 tested | 3 normal | 6 abnormal\n\n---\n\n### Executive Summary\n\nThe patient's lab results indicate prediabetes, elevated blood glucose, and lipid levels, as well as elevated CEA levels. Lifestyle changes and clinical follow-ups are recommended to manage these conditions.\n\n---\n\n### Requires Doctor Consult (Red Flags)\n\n**Glycosylated Haemoglobin (HbA1c)**\n- Reason: Prediabetes indication\n- Action: Schedule a follow-up appointment with a doctor to discuss management and potential treatment options\n\n**Carcino Embryonic Antigen (CEA)**\n- Reason: Elevated CEA levels\n- Action: Consult with a doctor to discuss potential health implications and further testing\n\n---\n\n### Lifestyle Adjustments (Yellow Flags)\n\n**Mean Blood Glucose**\n- Reason: Elevated blood glucose level\n- Action: Recommend lifestyle changes, such as diet and exercise, to help manage blood glucose levels\n\n**Triglycerides (TGL)**\n- Reason: Borderline high triglycerides\n- Action: Recommend lifestyle changes, such as diet and exercise, to help manage triglyceride levels\n\n**HDL Cholesterol**\n- Reason: Low HDL cholesterol\n- Action: Recommend lifestyle changes, such as diet and exercise, to help improve HDL cholesterol levels\n\n**VLDL**\n- Reason: Elevated VLDL\n- Action: Recommend lifestyle changes, such as diet and exercise, to help manage VLDL levels\n\n---\n\n### Detailed Results by System\n\n#### Metabolic\n\n| Parameter | Value | Reference | Status |\n|-----------|-------|-----------|--------|\n| Glycosylated Haemoglobin (HbA1c) | 6.6 % | <= 5.6 | High |\n| Mean Blood Glucose | 142.72 mg/dL | <= 115 | High |\n\n#### Lipid Profile\n\n| Parameter | Value | Reference | Status |\n|-----------|-------|-----------|--------|\n| Cholesterol Total | 168.10 mg/dl | < 200 | Normal |\n| Triglycerides (TGL) | 168.00 mg/dl | < 150 | High |\n| HDL Cholesterol | 43.30 mg/dL | > 60 | Low |\n| LDL Cholesterol | 91.20 mg/dL | < 100 | Normal |\n| VLDL | 33.60 mg/dL | 2-30 | High |\n| TOTAL CHOLESTEROL/HDL CHOLESTEROL RATIO | 3.88 | < 4.5 | Normal |\n\n#### Immunology\n\n| Parameter | Value | Reference | Status |\n|-----------|-------|-----------|--------|\n| Carcino Embryonic Antigen (CEA) | 8.51 ng/mL | < 3.0 (non-smoker), < 5.0 (smoker) | High |\n\n---\n\n### Action Plan\n\n**Clinical Follow-ups:**\n- Schedule a follow-up appointment with a doctor to discuss management and potential treatment options\n- Consult with a doctor to discuss potential health implications and further testing\n\n**Nutrition:**\n- Recommend a balanced diet to help manage blood glucose and lipid levels\n- Encourage healthy eating habits, such as increasing fiber and reducing saturated fat intake\n\n**Lifestyle:**\n- Recommend regular exercise, such as walking or jogging, to help improve insulin sensitivity and lipid profiles\n- Encourage stress-reducing activities, such as meditation or yoga, to help manage overall health\n\n---\n\n### Follow-Up\n\n- **Urgency:** Soon\n",
+  "formatted_summary": "## Clinical Co-Pilot Report\n\n### Report Overview\n- **Test Type:** Mixed\n- **Report Date:** 12/03/2026\n- **Total Parameters:** 9 tested | 3 normal | 6 abnormal\n\n---\n\n### Executive Summary\n\nThe patient's lab results indicate prediabetes, elevated blood glucose, and lipid levels, as well as elevated CEA levels. Lifestyle changes and clinical follow-ups are recommended to manage these conditions.\n\n---\n\n### Requires Doctor Consult (Red Flags)\n\n**Glycosylated Haemoglobin (HbA1c)**\n- Reason: Prediabetes indication\n- Action: Schedule a follow-up appointment with a doctor to discuss management and potential treatment options\n\n**Carcino Embryonic Antigen (CEA)**\n- Reason: Elevated CEA levels\n- Action: Consult with a doctor to discuss potential health implications and further testing\n\n---\n\n### Lifestyle Adjustments (Yellow Flags)\n\n**Mean Blood Glucose**\n- Reason: Elevated blood glucose level\n- Action: Recommend lifestyle changes, such as diet and exercise, to help manage blood glucose levels\n\n**Triglycerides (TGL)**\n- Reason: Borderline high triglycerides\n- Action: Recommend lifestyle changes, such as diet and exercise, to help manage triglyceride levels\n\n**HDL Cholesterol**\n- Reason: Low HDL cholesterol\n- Action: Recommend lifestyle changes, such as diet and exercise, to help improve HDL cholesterol levels\n\n**VLDL**\n- Reason: Elevated VLDL\n- Action: Recommend lifestyle changes, such as diet and exercise, to help manage VLDL levels\n\n---\n\n### Detailed Results by System\n\n#### Metabolic\n\n| Parameter | Value | Reference | Status |\n|-----------|-------|-----------|--------|\n| Glycosylated Haemoglobin (HbA1c) | 6.6 % | <= 5.6 | High |\n| Mean Blood Glucose | 142.72 mg/dL | <= 115 | High |\n\n#### Lipid Profile\n\n| Parameter | Value | Reference | Status |\n|-----------|-------|-----------|--------|\n| Cholesterol Total | 168.10 mg/dl | < 200 | Normal |\n| Triglycerides (TGL) | 168.00 mg/dl | < 150 | High |\n| HDL Cholesterol | 43.30 mg/dL | > 60 | Low |\n| LDL Cholesterol | 91.20 mg/dL | < 100 | Normal |\n| VLDL | 33.60 mg/dL | 2-30 | High |\n| TOTAL CHOLESTEROL/HDL CHOLESTEROL RATIO | 3.88 | < 4.5 | Normal |\n\n#### Immunology\n\n| Parameter | Value | Reference | Status |\n|-----------|-------|-----------|--------|\n| Carcino Embryonic Antigen (CEA) | 8.51 ng/mL | < 3.0 (non-smoker), < 5.0 (smoker) | High |\n\n---\n\n### Action Plan\n\n**Clinical Follow-ups:**\n- Schedule a follow-up appointment with a doctor to discuss management and potential treatment options\n- Consult with a doctor to discuss potential health implications and further testing\n\n**Nutrition:**\n- Recommend a balanced diet to help manage blood glucose and lipid levels\n- Encourage healthy eating habits, such as increasing fiber and reducing saturated fat intake\n\n**Lifestyle:**\n- Recommend regular exercise, such as walking or jogging, to help improve insulin sensitivity and lipid profiles\n- Encourage stress-reducing activities, such as meditation or yoga, to help manage overall health\n\n---\n\n### Follow-Up\n\n- **Urgency:** Soon\n",
+  "system_groups": [
+    {
+      "system": "Metabolic",
+      "biomarkers": [
+        {
+          "name": "Glycosylated Haemoglobin (HbA1c)",
+          "value": "6.6",
+          "unit": "%",
+          "reference_range": "<= 5.6",
+          "status": "high",
+          "clinical_note": "Indicates prediabetes"
+        },
+        {
+          "name": "Mean Blood Glucose",
+          "value": "142.72",
+          "unit": "mg/dL",
+          "reference_range": "<= 115",
+          "status": "high",
+          "clinical_note": "Elevated blood glucose level"
+        }
+      ]
+    },
+    {
+      "system": "Lipid Profile",
+      "biomarkers": [
+        {
+          "name": "Cholesterol Total",
+          "value": "168.10",
+          "unit": "mg/dl",
+          "reference_range": "< 200",
+          "status": "normal",
+          "clinical_note": null
+        },
+        {
+          "name": "Triglycerides (TGL)",
+          "value": "168.00",
+          "unit": "mg/dl",
+          "reference_range": "< 150",
+          "status": "high",
+          "clinical_note": "Borderline high triglycerides"
+        },
+        {
+          "name": "HDL Cholesterol",
+          "value": "43.30",
+          "unit": "mg/dL",
+          "reference_range": "> 60",
+          "status": "low",
+          "clinical_note": "Low HDL cholesterol"
+        },
+        {
+          "name": "LDL Cholesterol",
+          "value": "91.20",
+          "unit": "mg/dL",
+          "reference_range": "< 100",
+          "status": "normal",
+          "clinical_note": null
+        },
+        {
+          "name": "VLDL",
+          "value": "33.60",
+          "unit": "mg/dL",
+          "reference_range": "2-30",
+          "status": "high",
+          "clinical_note": "Elevated VLDL"
+        },
+        {
+          "name": "TOTAL CHOLESTEROL/HDL CHOLESTEROL RATIO",
+          "value": "3.88",
+          "unit": null,
+          "reference_range": "< 4.5",
+          "status": "normal",
+          "clinical_note": null
+        }
+      ]
+    },
+    {
+      "system": "Immunology",
+      "biomarkers": [
+        {
+          "name": "Carcino Embryonic Antigen (CEA)",
+          "value": "8.51",
+          "unit": "ng/mL",
+          "reference_range": "< 3.0 (non-smoker), < 5.0 (smoker)",
+          "status": "high",
+          "clinical_note": "Elevated CEA, may indicate potential health issue"
+        }
+      ]
+    }
+  ],
+  "triage": {
+    "red_flags": [
+      {
+        "biomarker": "Glycosylated Haemoglobin (HbA1c)",
+        "reason": "Prediabetes indication",
+        "action": "Schedule a follow-up appointment with a doctor to discuss management and potential treatment options"
+      },
+      {
+        "biomarker": "Carcino Embryonic Antigen (CEA)",
+        "reason": "Elevated CEA levels",
+        "action": "Consult with a doctor to discuss potential health implications and further testing"
+      }
+    ],
+    "yellow_flags": [
+      {
+        "biomarker": "Mean Blood Glucose",
+        "reason": "Elevated blood glucose level",
+        "action": "Recommend lifestyle changes, such as diet and exercise, to help manage blood glucose levels"
+      },
+      {
+        "biomarker": "Triglycerides (TGL)",
+        "reason": "Borderline high triglycerides",
+        "action": "Recommend lifestyle changes, such as diet and exercise, to help manage triglyceride levels"
+      },
+      {
+        "biomarker": "HDL Cholesterol",
+        "reason": "Low HDL cholesterol",
+        "action": "Recommend lifestyle changes, such as diet and exercise, to help improve HDL cholesterol levels"
+      },
+      {
+        "biomarker": "VLDL",
+        "reason": "Elevated VLDL",
+        "action": "Recommend lifestyle changes, such as diet and exercise, to help manage VLDL levels"
+      }
+    ]
+  },
+  "action_plan": {
+    "clinical_followups": [
+      "Schedule a follow-up appointment with a doctor to discuss management and potential treatment options",
+      "Consult with a doctor to discuss potential health implications and further testing"
+    ],
+    "nutrition": [
+      "Recommend a balanced diet to help manage blood glucose and lipid levels",
+      "Encourage healthy eating habits, such as increasing fiber and reducing saturated fat intake"
+    ],
+    "lifestyle": [
+      "Recommend regular exercise, such as walking or jogging, to help improve insulin sensitivity and lipid profiles",
+      "Encourage stress-reducing activities, such as meditation or yoga, to help manage overall health"
+    ]
+  },
+  "delta_tracking": [],
+  "abnormal_count": 6,
+  "normal_count": 3,
+  "urgency_level": "soon",
+  "privacy": {
+    "phi_entities_redacted": true,
+    "processing_location": "local",
+    "cloud_received": "anonymized_text_only"
+  }
+}

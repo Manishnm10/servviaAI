@@ -1,5 +1,5 @@
 from langchain_classic.chains import ConversationalRetrievalChain
-from langchain_community.chat_models import ChatOpenAI
+from langchain_openai import ChatOpenAI
 
 from core import settings
 
@@ -36,9 +36,9 @@ class ChainBuilder:
         return qa, vector_db
 
 
-from langchain_classic.schema.retriever import BaseRetriever
+from langchain_core.retrievers import BaseRetriever
 from typing import Any, Dict, List
-from langchain_classic.callbacks.manager import CallbackManagerForRetrieverRun
+from langchain_core.callbacks.manager import CallbackManagerForRetrieverRun
 from langchain_core.documents import Document
 
 class MultiRetrieverConversationalRetrievalChain(ConversationalRetrievalChain):

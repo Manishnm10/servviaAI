@@ -1,7 +1,7 @@
 # FS TechStack
 
 ## Overview
-This document outlines the technical stack for the Farmstack application, which uses React for the frontend and Django for the backend.  
+This document outlines the technical stack for the ServVia Backend application, which uses React for the frontend and Django for the backend.  
 React is a JavaScript library for building user interfaces, while Django is a high-level Python web framework.
 
 ## Frontend - React
@@ -39,7 +39,7 @@ Django is a high-level Python web framework that simplifies web application deve
 - **Celery**: For handling asynchronous tasks and background jobs.
 
 ### Folder Structure:
-- `farmstack_backend/`: The project root directory.
+- `servvia_backend/`: The project root directory.
   - `microsite/`: Handles APIs for all requests of Microsite.
   - `accounts/`: Manages all authentication-related requests.
   - `core/`: Project-level configuration.

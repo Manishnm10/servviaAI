@@ -1,12 +1,12 @@
 
-                                                                **Farmstack 2.0 – HLD Technical**
+                                                                **ServVia Backend 2.0 – HLD Technical**
 
 
 #**Objective**
-The objective of this document is to briefly explain the technical details involved in the development, setup, configuration and usage of FarmStack 2.0.
+The objective of this document is to briefly explain the technical details involved in the development, setup, configuration and usage of ServVia Backend 2.0.
 
-FarmStack is an open-source data exchange platform. It is built to address the agriculture sector data exchange/sharing needs. However, it can be used in any ecosystem where exchange/sharing of data is happening between participants. The detailed information is available in the ‘README.MD’ file at the below given location.
-https://github.com/digitalgreenorg/farmstack-backend/blob/Satischandra-docs-upload/README.md
+ServVia Backend is an open-source data exchange platform. It is built to address the agriculture sector data exchange/sharing needs. However, it can be used in any ecosystem where exchange/sharing of data is happening between participants. The detailed information is available in the ‘README.MD’ file at the below given location.
+servvia-backend/blob/Satischandra-docs-upload/README.md
 
 
 ##**Details**
@@ -379,7 +379,7 @@ This technical documention mainly contains details about the below items/modules
 
 **11. APIs:**
             Please refer the postman link, 
-            https://farmstack.postman.co/workspace/Team-Workspace~969c8a4f-ed74-4a62-8242-136e8f19f004/collection/21462346-53d41ee4-4726-42fe-8b41-49b188d8ee1a?action=share&creator=25788189
+            https://servvia-backend.postman.co/workspace/Team-Workspace~969c8a4f-ed74-4a62-8242-136e8f19f004/collection/21462346-53d41ee4-4726-42fe-8b41-49b188d8ee1a?action=share&creator=25788189
 
             
 **12. Usage Policy:**

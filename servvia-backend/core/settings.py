@@ -9,8 +9,7 @@ https://docs.djangoproject.com/en/4.0/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.0/ref/settings/
 """
-from dotenv import load_dotenv
-load_dotenv()
+
 import collections
 import json
 import os
@@ -423,7 +422,7 @@ INTERNAL_IPS = "*"
 FILE_UPLOAD_MAX_SIZE = 2
 FILE_TYPES_ALLOWED = ["pdf", "doc", "docx"]
 IMAGE_TYPES_ALLOWED = ["jpg", "jpeg", "png"]
-TEMP_FILE_PATH = "/tmp/datahub/"
+TEMP_FILE_PATH = os.path.join(BASE_DIR, "tmp", "datahub")
 CSS_FILE_NAME = "override.css"
 
 CSS_ROOT = os.path.join(BASE_DIR, "media/theme/css/")

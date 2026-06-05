@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ServVia - AI Healthcare Intelligence</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        background: #000000;
+        color: #ffffff;
+        font-family: 'Inter', sans-serif;
+        height: 100vh;
+        overflow: hidden;
+      }
+
+      .bg-gradient {
+        background: #000000;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+      }
+
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        padding: 0;
+        position: relative;
+        z-index: 1;
+      }
+
+      .header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 1.5rem 2rem;
+        border-bottom: 1px solid rgba(220, 38, 38, 0.2);
+        background: #000000;
+      }
+
+      .logo {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+      }
+
+      .logo-icon {
+        width: 40px;
+        height: 40px;
+        background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
+      }
+
+      .logo-text h1 {
+        font-size: 1.75rem;
+        font-weight: 700;
+        letter-spacing: -0.5px;
+        background: linear-gradient(135deg, #ffffff 0%, #dc2626 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+
+      .logo-text p {
+        font-size: 0.75rem;
+        color: rgba(255, 255, 255, 0.5);
+        letter-spacing: 2px;
+        text-transform: uppercase;
+      }
+
+      .header-right {
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+      }
+
+      .profile-info {
+        display: none;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 0.5rem;
+      }
+
+      .profile-info.active {
+        display: flex;
+      }
+
+      .profile-name {
+        font-size: 1rem;
+        font-weight: 600;
+        color: #ffffff;
+      }
+
+      .profile-badges {
+        display: flex;
+        gap: 0.5rem;
+        font-size: 0.75rem;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
+
+      .badge {
+        background: rgba(220, 38, 38, 0.1);
+        border: 1px solid rgba(220, 38, 38, 0.3);
+        padding: 0.25rem 0.75rem;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+        white-space: nowrap;
+        color: #dc2626;
+      }
+
+      .edit-profile-btn {
+        background: rgba(220, 38, 38, 0.1);
+        border: 1px solid rgba(220, 38, 38, 0.3);
+        color: #dc2626;
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 0.875rem;
+        transition: all 0.3s ease;
+        display: none;
+        white-space: nowrap;
+      }
+
+      .edit-profile-btn.active {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
+      .edit-profile-btn:hover {
+        background: rgba(220, 38, 38, 0.2);
+        border-color: rgba(220, 38, 38, 0.5);
+      }
+
+      .status {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: rgba(255, 255, 255, 0.6);
+        font-size: 0.875rem;
+      }
+
+      .status-dot {
+        width: 8px;
+        height: 8px;
+        background: #22c55e;
+        border-radius: 50%;
+        animation: pulse 2s ease-in-out infinite;
+      }
+
+      @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+      }
+
+      .chat-wrapper {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        padding: 2rem;
+      }
+
+      #chat {
+        flex: 1;
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding: 2rem;
+        background: #000000;
+        border-radius: 16px;
+        border: 1px solid rgba(220, 38, 38, 0.1);
+        margin-bottom: 1.5rem;
+      }
+
+      #chat::-webkit-scrollbar {
+        width: 8px;
+      }
+
+      #chat::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 10px;
+      }
+
+      #chat::-webkit-scrollbar-thumb {
+        background: rgba(220, 38, 38, 0.3);
+        border-radius: 10px;
+      }
+
+      #chat::-webkit-scrollbar-thumb:hover {
+        background: rgba(220, 38, 38, 0.5);
+      }
+
+      .screen {
+        display: none;
+      }
+
+      .screen.active {
+        display: block;
+      }
+
+      .welcome-screen, .onboarding-screen {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        min-height: 400px;
+      }
+
+      .welcome-icon {
+        font-size: 4rem;
+        margin-bottom: 2rem;
+        background: linear-gradient(135deg, #ffffff 0%, #dc2626 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+
+      .welcome-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 0.75rem;
+        letter-spacing: -1px;
+        color: #ffffff;
+      }
+
+      .welcome-subtitle {
+        font-size: 1.125rem;
+        color: rgba(255, 255, 255, 0.6);
+        margin-bottom: 3rem;
+      }
+
+      .form-container {
+        width: 100%;
+        max-width: 500px;
+      }
+
+      .form-group {
+        margin-bottom: 1.5rem;
+        text-align: left;
+      }
+
+      .form-label {
+        display: block;
+        margin-bottom: 0.5rem;
+        color: rgba(255, 255, 255, 0.8);
+        font-size: 0.875rem;
+        font-weight: 500;
+      }
+
+      .form-input, .form-textarea {
+        width: 100%;
+        padding: 1rem 1.5rem;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(220, 38, 38, 0.2);
+        border-radius: 12px;
+        color: #ffffff;
+        font-size: 1rem;
+        outline: none;
+        transition: all 0.3s ease;
+        font-family: 'Inter', sans-serif;
+      }
+
+      .form-textarea {
+        resize: vertical;
+        min-height: 80px;
+      }
+
+      .form-input::placeholder, .form-textarea::placeholder {
+        color: rgba(255, 255, 255, 0.3);
+      }
+
+      .form-input:focus, .form-textarea:focus {
+        background: rgba(255, 255, 255, 0.08);
+        border-color: #dc2626;
+        box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+      }
+
+      .form-hint {
+        margin-top: 0.5rem;
+        font-size: 0.75rem;
+        color: rgba(255, 255, 255, 0.4);
+      }
+
+      .btn {
+        width: 100%;
+        padding: 1rem 1.5rem;
+        background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+        border: none;
+        border-radius: 12px;
+        color: #ffffff;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
+      }
+
+      .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(220, 38, 38, 0.4);
+      }
+
+      .btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none;
+      }
+
+      .features {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1.5rem;
+        margin-top: 3rem;
+        max-width: 700px;
+      }
+
+      .feature-card {
+        padding: 1.5rem;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(220, 38, 38, 0.2);
+        border-radius: 12px;
+        text-align: center;
+        transition: all 0.3s ease;
+      }
+
+      .feature-card:hover {
+        background: rgba(220, 38, 38, 0.05);
+        border-color: rgba(220, 38, 38, 0.3);
+        transform: translateY(-4px);
+      }
+
+      .feature-icon {
+        font-size: 2rem;
+        color: #dc2626;
+        margin-bottom: 0.75rem;
+      }
+
+      .feature-text {
+        font-size: 0.875rem;
+        color: rgba(255, 255, 255, 0.7);
+      }
+
+      .message {
+        margin: 1.5rem 0;
+        max-width: 80%;
+        animation: slideIn 0.3s ease;
+        clear: both;
+      }
+
+      @keyframes slideIn {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .user-message {
+        float: right;
+        clear: both;
+      }
+
+      .user-message .message-content {
+        background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+        color: #ffffff;
+        padding: 1rem 1.5rem;
+        border-radius: 16px 16px 4px 16px;
+        display: inline-block;
+        box-shadow: 0 4px 12px rgba(220, 38, 38, 0.2);
+      }
+
+      .bot-message {
+        float: left;
+        clear: both;
+      }
+
+      .bot-message .message-content {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(220, 38, 38, 0.2);
+        color: #ffffff;
+        padding: 1.5rem;
+        border-radius: 16px 16px 16px 4px;
+        line-height: 1.8;
+      }
+
+      /* Better markdown styling */
+      .message-content p {
+        margin: 0.75rem 0;
+        line-height: 1.8;
+        color: rgba(255, 255, 255, 0.9);
+      }
+
+      .message-content ul, .message-content ol {
+        margin: 1rem 0;
+        padding-left: 2rem;
+      }
+
+      .message-content li {
+        margin: 0.75rem 0;
+        line-height: 1.8;
+        color: rgba(255, 255, 255, 0.85);
+      }
+
+      .message-content strong {
+        color: #dc2626;
+        font-weight: 600;
+      }
+
+      .message-content h1, .message-content h2, .message-content h3 {
+        color: #dc2626;
+        margin: 1.5rem 0 0.75rem 0;
+        font-weight: 700;
+      }
+
+      .message-content code {
+        background: rgba(220, 38, 38, 0.1);
+        padding: 0.2rem 0.4rem;
+        border-radius: 4px;
+        font-size: 0.9em;
+        color: #ef4444;
+      }
+
+      .clearfix::after {
+        content: "";
+        display: table;
+        clear: both;
+      }
+
+      .input-container {
+        background: #000000;
+        border: 1px solid rgba(220, 38, 38, 0.2);
+        border-radius: 16px;
+        padding: 1rem;
+        margin: 0 2rem 2rem 2rem;
+        display: none;
+      }
+
+      .input-container.active {
+        display: block;
+      }
+
+      .input-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+      }
+
+      #userInput {
+        flex: 1;
+        background: transparent;
+        border: none;
+        color: #ffffff;
+        font-size: 1rem;
+        outline: none;
+        padding: 0.5rem;
+      }
+
+      #userInput::placeholder {
+        color: rgba(255, 255, 255, 0.3);
+      }
+
+      #sendButton {
+        width: 48px;
+        height: 48px;
+        background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+        border: none;
+        border-radius: 12px;
+        color: #ffffff;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.125rem;
+      }
+
+      #sendButton:hover {
+        transform: scale(1.05);
+        box-shadow: 0 4px 12px rgba(220, 38, 38, 0.4);
+      }
+
+      .loading {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        margin-top: 0.5rem;
+        color: rgba(255, 255, 255, 0.6);
+        font-size: 0.875rem;
+      }
+
+      .hidden {
+        display: none !important;
+      }
+    </style>
+</head>
+
+<body class="bg-gradient">
+    <div class="container">
+      <div class="header">
+        <div class="logo">
+          <div class="logo-icon">
+            <i class="fas fa-heartbeat"></i>
+          </div>
+          <div class="logo-text">
+            <h1>ServVia</h1>
+            <p>AI Healthcare Intelligence</p>
+          </div>
+        </div>
+        <div class="header-right">
+          <div class="profile-info" id="profileInfo">
+            <div class="profile-name" id="profileName"></div>
+            <div class="profile-badges" id="profileBadges"></div>
+          </div>
+          <button class="edit-profile-btn" id="editProfileBtn" onclick="editProfile()">
+            <i class="fas fa-user-edit"></i> Edit Profile
+          </button>
+          <div class="status">
+            <div class="status-dot"></div>
+            <span>Online</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="chat-wrapper">
+        <div id="chat">
+          <!-- Email Login Screen -->
+          <div id="emailScreen" class="screen active">
+            <div class="welcome-screen">
+              <div class="welcome-icon">
+                <i class="fas fa-stethoscope"></i>
+              </div>
+              <h2 class="welcome-title">Welcome to ServVia</h2>
+              <p class="welcome-subtitle">Your Personalized AI Health Companion</p>
+              
+              <div class="form-container">
+                <div class="form-group">
+                  <input
+                    type="email"
+                    id="emailInput"
+                    class="form-input"
+                    placeholder="Enter your email address"
+                    onkeypress="if(event.key === 'Enter') checkUserProfile()"
+                  />
+                </div>
+                <button class="btn" onclick="checkUserProfile()">
+                  Continue
+                </button>
+              </div>
+              
+              <div class="features">
+                <div class="feature-card">
+                  <div class="feature-icon"><i class="fas fa-user-md"></i></div>
+                  <p class="feature-text">Personalized Care</p>
+                </div>
+                <div class="feature-card">
+                  <div class="feature-icon"><i class="fas fa-shield-alt"></i></div>
+                  <p class="feature-text">Safety First</p>
+                </div>
+                <div class="feature-card">
+                  <div class="feature-icon"><i class="fas fa-leaf"></i></div>
+                  <p class="feature-text">Natural Remedies</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Profile Onboarding Screen -->
+          <div id="onboardingScreen" class="screen">
+            <div class="onboarding-screen">
+              <div class="welcome-icon">
+                <i class="fas fa-clipboard-list"></i>
+              </div>
+              <h2 class="welcome-title" id="onboardingTitle">Tell Us About Yourself</h2>
+              <p class="welcome-subtitle">This helps us provide safe, personalized health recommendations</p>
+              
+              <div class="form-container">
+                <div class="form-group">
+                  <label class="form-label">What's your name?</label>
+                  <input
+                    type="text"
+                    id="nameInput"
+                    class="form-input"
+                    placeholder="Your first name"
+                  />
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">
+                    <i class="fas fa-exclamation-triangle" style="color: #dc2626;"></i>
+                    Do you have any allergies?
+                  </label>
+                  <textarea
+                    id="allergiesInput"
+                    class="form-textarea"
+                    placeholder="e.g., peanuts, shellfish, penicillin (or leave blank if none)"
+                  ></textarea>
+                  <p class="form-hint">Separate multiple allergies with commas</p>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">
+                    <i class="fas fa-notes-medical" style="color: #dc2626;"></i>
+                    Any existing medical conditions?
+                  </label>
+                  <textarea
+                    id="conditionsInput"
+                    class="form-textarea"
+                    placeholder="e.g., diabetes, hypertension (or leave blank if none)"
+                  ></textarea>
+                  <p class="form-hint">This helps us recommend safe remedies</p>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">
+                    <i class="fas fa-pills" style="color: #dc2626;"></i>
+                    Current medications?
+                  </label>
+                  <textarea
+                    id="medicationsInput"
+                    class="form-textarea"
+                    placeholder="e.g., aspirin, metformin (or leave blank if none)"
+                  ></textarea>
+                  <p class="form-hint">We'll check for potential interactions</p>
+                </div>
+
+                <button class="btn" onclick="saveUserProfile()">
+                  <i class="fas fa-check-circle"></i> Save Profile & Continue
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Chat Screen -->
+          <div id="chatScreen" class="screen clearfix">
+            <!-- Messages appear here -->
+          </div>
+        </div>
+      </div>
+
+      <div class="input-container" id="inputContainer">
+        <div class="input-wrapper">
+          <input
+            type="text"
+            id="userInput"
+            placeholder="Ask about symptoms, remedies, or health concerns..."
+            onkeypress="if(event.key === 'Enter') sendMessage()"
+          />
+          <button id="sendButton" onclick="sendMessage()">
+            <i class="fas fa-paper-plane"></i>
+          </button>
+        </div>
+        <div id="loadingIcon" class="loading hidden">
+          <i class="fas fa-spinner fa-spin"></i>
+          <span>Analyzing your query...</span>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const baseUrl = "";
+      let userEmail = "";
+      let userProfile = null;
+
+      function showScreen(screenId) {
+        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+        document.getElementById(screenId).classList.add('active');
+      }
+
+      function parseProfileArray(data) {
+        if (Array.isArray(data)) return data;
+        if (typeof data === 'string') {
+          return data.split(',').map(item => item.trim()).filter(item => item);
+        }
+        return [];
+      }
+
+      function updateProfileDisplay() {
+        if (userProfile) {
+          const profileInfo = document.getElementById('profileInfo');
+          const profileName = document.getElementById('profileName');
+          const profileBadges = document.getElementById('profileBadges');
+          const editBtn = document.getElementById('editProfileBtn');
+          
+          profileName.textContent = userProfile.first_name || 'User';
+          
+          const allergies = parseProfileArray(userProfile.allergies);
+          const conditions = parseProfileArray(userProfile.medical_conditions);
+          
+          let badges = '';
+          if (allergies.length > 0) {
+            badges += `<div class="badge"><i class="fas fa-shield-alt"></i> Protected from ${allergies.length} allergen${allergies.length > 1 ? 's' : ''}</div>`;
+          }
+          if (conditions.length > 0) {
+            badges += `<div class="badge"><i class="fas fa-notes-medical"></i> ${conditions.length} condition${conditions.length > 1 ? 's' : ''}</div>`;
+          }
+          
+          profileBadges.innerHTML = badges;
+          profileInfo.classList.add('active');
+          editBtn.classList.add('active');
+        }
+      }
+
+      function editProfile() {
+        document.getElementById('onboardingTitle').textContent = 'Update Your Profile';
+        
+        const allergies = parseProfileArray(userProfile.allergies);
+        const conditions = parseProfileArray(userProfile.medical_conditions);
+        const medications = parseProfileArray(userProfile.current_medications);
+        
+        document.getElementById('nameInput').value = userProfile.first_name || '';
+        document.getElementById('allergiesInput').value = allergies.join(', ');
+        document.getElementById('conditionsInput').value = conditions.join(', ');
+        document.getElementById('medicationsInput').value = medications.join(', ');
+        
+        showScreen('onboardingScreen');
+        document.getElementById('inputContainer').classList.remove('active');
+      }
+
+      async function checkUserProfile() {
+        const email = document.getElementById("emailInput").value.trim();
+        
+        if (!email || !email.includes("@")) {
+          alert("Please enter a valid email address");
+          return;
+        }
+
+        userEmail = email;
+        
+        try {
+          const response = await fetch(`${baseUrl}/api/profile/profile/check_profile/`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email_id: email }),
+          });
+
+          const data = await response.json();
+
+          if (data.exists && data.is_complete) {
+            userProfile = data.profile;
+            updateProfileDisplay();
+            startChat();
+          } else {
+            showScreen("onboardingScreen");
+          }
+        } catch (error) {
+          console.error("Error:", error);
+          alert("Connection error. Please try again.");
+        }
+      }
+
+      async function saveUserProfile() {
+        const name = document.getElementById("nameInput").value.trim();
+        const allergies = document.getElementById("allergiesInput").value.trim();
+        const conditions = document.getElementById("conditionsInput").value.trim();
+        const medications = document.getElementById("medicationsInput").value.trim();
+
+        if (!name) {
+          alert("Please enter your name");
+          return;
+        }
+
+        try {
+          const response = await fetch(`${baseUrl}/api/profile/profile/create_or_update_profile/`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              email_id: userEmail,
+              first_name: name,
+              allergies: allergies,
+              medical_conditions: conditions,
+              current_medications: medications,
+            }),
+          });
+
+          const data = await response.json();
+
+          if (data.success) {
+            userProfile = data.profile;
+            updateProfileDisplay();
+            startChat();
+          } else {
+            alert("Error saving profile. Please try again.");
+          }
+        } catch (error) {
+          console.error("Error:", error);
+          alert("Connection error. Please try again.");
+        }
+      }
+
+      function startChat() {
+        showScreen("chatScreen");
+        document.getElementById("inputContainer").classList.add("active");
+
+        const chatScreen = document.getElementById("chatScreen");
+        
+        const allergies = parseProfileArray(userProfile.allergies);
+        
+        let welcomeMsg = `<div style="text-align: center; padding: 2rem;">
+          <div style="font-size: 3rem; margin-bottom: 1rem;">👋</div>
+          <h2 style="font-size: 1.5rem; margin-bottom: 0.5rem; color: #ffffff;">Welcome back, ${userProfile.first_name}!</h2>
+          <p style="color: rgba(255,255,255,0.6); margin-bottom: 1.5rem;">I'm ServVia, your personalized health companion</p>`;
+
+        if (allergies.length > 0) {
+          welcomeMsg += `<div style="display: inline-flex; align-items: center; gap: 0.5rem; background: rgba(220, 38, 38, 0.1); border: 1px solid rgba(220, 38, 38, 0.3); padding: 0.75rem 1.5rem; border-radius: 8px; margin-bottom: 1rem;">
+            <i class="fas fa-shield-alt" style="color: #dc2626;"></i>
+            <span style="color: #dc2626;">Protected from: ${allergies.join(", ")}</span>
+          </div>`;
+        }
+
+        welcomeMsg += `<p style="margin-top: 2rem; color: rgba(255,255,255,0.7);">How can I help you today?</p></div>`;
+
+        chatScreen.innerHTML = welcomeMsg;
+        document.getElementById("userInput").focus();
+      }
+
+      function addToChatWindow(sender, message) {
+        const chatScreen = document.getElementById("chatScreen");
+        const messageDiv = document.createElement("div");
+        messageDiv.className = `message ${sender === "user" ? "user-message" : "bot-message"}`;
+        
+        const contentDiv = document.createElement("div");
+        contentDiv.className = "message-content";
+        
+        if (sender === "bot") {
+          contentDiv.innerHTML = marked.parse(message);
+        } else {
+          contentDiv.textContent = message;
+        }
+        
+        messageDiv.appendChild(contentDiv);
+        chatScreen.appendChild(messageDiv);
+        
+        const chatContainer = chatScreen.parentElement;
+        setTimeout(() => {
+          chatContainer.scrollTop = chatContainer.scrollHeight;
+        }, 100);
+      }
+
+      async function sendMessage() {
+        const input = document.getElementById("userInput");
+        const message = input.value.trim();
+        
+        if (!message) return;
+        
+        input.value = "";
+        addToChatWindow("user", message);
+        
+        const loadingIcon = document.getElementById("loadingIcon");
+        loadingIcon.classList.remove("hidden");
+        
+        const chatScreen = document.getElementById("chatScreen");
+        const loadingMsg = document.createElement("div");
+        loadingMsg.className = "message bot-message";
+        loadingMsg.id = "loadingMsg";
+        loadingMsg.innerHTML = '<div class="message-content"><i class="fas fa-spinner fa-spin"></i> Analyzing...</div>';
+        chatScreen.appendChild(loadingMsg);
+        
+        try {
+          const response = await fetch(`${baseUrl}/api/chat/get_answer_for_text_query/`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              email_id: userEmail,
+              query: message,
+            }),
+          });
+
+          const data = await response.json();
+          
+          const loading = document.getElementById("loadingMsg");
+          if (loading) loading.remove();
+          loadingIcon.classList.add("hidden");
+          
+          if (data.response) {
+            addToChatWindow("bot", data.response);
+          } else {
+            addToChatWindow("bot", "I couldn't generate a response. Please try again.");
+          }
+        } catch (error) {
+          console.error("Error:", error);
+          const loading = document.getElementById("loadingMsg");
+          if (loading) loading.remove();
+          loadingIcon.classList.add("hidden");
+          addToChatWindow("bot", "Connection error. Please try again.");
+        }
+      }
+
+      window.addEventListener("load", () => {
+        document.getElementById("emailInput").focus();
+      });
+    </script>
+</body>
+</html>

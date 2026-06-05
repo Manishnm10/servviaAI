@@ -11,7 +11,7 @@ def authenticate_user_based_on_email(email_id):
     if not Config.WITH_DB_CONFIG:
         if email_id and '@' in email_id:
             logger.info(f"Bypassing database authentication for email: {email_id}")
-            return {"email": email_id, "authenticated": True, "user_id": 1, "first_name": "Farmer"}
+            return {"email": email_id, "authenticated": True, "user_id": 1, "first_name": "User"}
         return None
     
     # Original database authentication

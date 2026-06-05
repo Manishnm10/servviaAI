@@ -1,24 +1,53 @@
-.env
-*.env
-.env.*
-example_dot_env
-media/
-myenv/
-venv/
-.venv/
-env/
+# Python
 __pycache__/
 *.pyc
-.pytest_cache/
-.coverage
-htmlcov/
-db.sqlite3
-tts_cache/
+*.pyo
+*.pyd
+
+# Virtual Environment
+venv/
+.env/
+.env
+
+# Logs
 *.log
+
+# OS
 .DS_Store
-node_modules/
+Thumbs.db
+
+# IDE
 .vscode/
-/tests/test_files/
-/tests/test_data/
-/tests/image/
-/migrations/ 
+.idea/
+
+# Secrets
+credentials.json
+service_account.json
+*.pem
+*.key
+
+# Python packages
+*.egg-info/
+dist/
+build/
+
+# Cache
+.cache/
+
+servvia/New Text Document.txt
+
+# Claude config
+.claude/
+
+node_modules/
+.next/
+.env
+*.env
+dist/
+build/
+
+# Testing inputs & outputs (eval artifacts, sample images/reports)
+testing/
+servvia/skin_analysis/test/
+*lint-results.txt
+lab_result.json

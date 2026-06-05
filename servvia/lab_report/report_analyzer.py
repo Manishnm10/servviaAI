@@ -9,7 +9,6 @@ import os
 import json
 import logging
 import tempfile
-import time
 from typing import Any, Dict, Optional
 
 from PIL import Image
@@ -34,20 +33,14 @@ class LabReportAnalyzer:
     - Provide a markdown-formatted summary ready for UI display
     """
 
-    DEFAULT_MODEL = "gemini-2.0-flash"  # Use stable model ID for production
+    DEFAULT_MODEL = "gemini-3-flash-preview"
+    FALLBACK_MODELS = ["gemini-2.5-flash", "gemini-3.1-flash-lite-preview"]
 
     def __init__(
         self,
         model_name: Optional[str] = None,
         request_timeout: int = 90,
     ) -> None:
-        """
-        Initialize Gemini API client and model.
-
-        Args:
-            model_name: Optional override for Gemini model name.
-            request_timeout: Timeout (seconds) for Gemini requests.
-        """
         api_key = (
             ENV_CONFIG.get("GOOGLE_API_KEY")
             or ENV_CONFIG.get("GEMINI_API_KEY")
@@ -74,6 +67,32 @@ class LabReportAnalyzer:
             self.request_timeout,
         )
 
+    def _generate_with_fallback(self, contents) -> str:
+        """Call Gemini with automatic model fallback on 503/unavailable errors."""
+        models_to_try = [self.model_name] + [
+            m for m in self.FALLBACK_MODELS if m != self.model_name
+        ]
+        last_error = None
+        for model_id in models_to_try:
+            try:
+                model = genai.GenerativeModel(model_id)
+                response = model.generate_content(
+                    contents,
+                    request_options={"timeout": self.request_timeout},
+                )
+                if model_id != self.model_name:
+                    logger.info("📝 LabReportAnalyzer using fallback model: %s", model_id)
+                return (response.text or "").strip()
+            except Exception as e:
+                if "503" in str(e) or "UNAVAILABLE" in str(e):
+                    logger.warning("⚠️ %s unavailable, trying next model...", model_id)
+                    last_error = e
+                    continue
+                raise
+        raise RuntimeError(
+            f"All Gemini models unavailable. Last error: {last_error}"
+        )
+
     # -------------------------------------------------------------------------
     # TEXT EXTRACTION
     # -------------------------------------------------------------------------
@@ -83,7 +102,7 @@ class LabReportAnalyzer:
         Extract text from a lab report (image or PDF).
 
         Args:
-            report_file: Django UploadedFile (or file-like) containing image/PDF. 
+            report_file: Django UploadedFile (or file-like) containing image/PDF.
 
         Returns:
             Extracted text as a string (may be empty on failure).
@@ -98,21 +117,15 @@ class LabReportAnalyzer:
             # Reset file pointer (safe for Django UploadedFile reuse)
             try:
                 report_file.seek(0)
-            except Exception: 
+            except Exception:
                 pass
 
-            # Detect file type from file name
-            file_name = getattr(report_file, 'name', '')
-            file_extension = file_name.lower().split('.')[-1] if file_name else ''
-        
-            logger.info(f"Processing file: {file_name}, extension: {file_extension}")
-        
             # Try to treat as image first
             try:
                 image = Image.open(io.BytesIO(file_data))
 
                 # Ensure compatible mode
-                if image.mode not in ["RGB", "RGBA"]:
+                if image.mode != "RGB":
                     image = image.convert("RGB")
 
                 prompt = (
@@ -128,12 +141,7 @@ class LabReportAnalyzer:
                 )
 
                 logger.info("📄 Attempting image-based text extraction via Gemini Vision...")
-                response = self.model.generate_content(
-                    [prompt, image],
-                    request_options={"timeout": self.request_timeout},
-                )
-
-                extracted_text = (response.text or "").strip()
+                extracted_text = self._generate_with_fallback([prompt, image])
                 logger.info(
                     "✅ Extracted %d characters from lab report image",
                     len(extracted_text),
@@ -148,72 +156,39 @@ class LabReportAnalyzer:
                     img_error,
                 )
 
-                # For PDFs, we need to use PyPDF2 or pdfplumber for local extraction
-                # since Gemini File API may have restrictions
+                with tempfile.NamedTemporaryFile(
+                    delete=False, suffix=".pdf"
+                ) as tmp:
+                    tmp.write(file_data)
+                    tmp_path = tmp.name
+
+                prompt = (
+                    "Extract all text from this lab report PDF, "
+                    "preserving structure and table content."
+                )
+
                 try:
-                    import PyPDF2
-                
-                    logger.info("📄 Extracting text from PDF using PyPDF2...")
-                
-                    # Create a PDF reader object
-                    pdf_reader = PyPDF2.PdfReader(io.BytesIO(file_data))
-                
-                    extracted_text = ""
-                    for page_num, page in enumerate(pdf_reader. pages):
-                        page_text = page.extract_text()
-                        if page_text:
-                            extracted_text += f"\n--- Page {page_num + 1} ---\n{page_text}"
-                
-                    if extracted_text. strip():
-                        logger.info(
-                            "✅ Extracted %d characters from PDF using PyPDF2",
-                            len(extracted_text),
+                    logger.info("📄 Uploading PDF to Gemini for text extraction...")
+                    uploaded_file = genai.upload_file(path=tmp_path)
+                    extracted_text = self._generate_with_fallback([prompt, uploaded_file])
+                    logger.info(
+                        "✅ Extracted %d characters from lab report PDF",
+                        len(extracted_text),
+                    )
+                    return extracted_text
+
+                finally:
+                    # Clean up local temp file
+                    try:
+                        os.unlink(tmp_path)
+                    except OSError:
+                        logger.warning(
+                            "Failed to delete temporary PDF file: %s", tmp_path
                         )
-                        return extracted_text. strip()
-                    else:
-                        logger.warning("PyPDF2 extraction returned empty text")
-                    
-                except ImportError:
-                    logger.warning("PyPDF2 not installed, trying pdfplumber...")
-                except Exception as pypdf_error:
-                    logger. warning(f"PyPDF2 extraction failed: {pypdf_error}")
-            
-                # Try pdfplumber as fallback
-                try:
-                    import pdfplumber
-                
-                    logger.info("📄 Extracting text from PDF using pdfplumber...")
-                
-                    extracted_text = ""
-                    with pdfplumber.open(io.BytesIO(file_data)) as pdf:
-                        for page_num, page in enumerate(pdf.pages):
-                            page_text = page.extract_text()
-                            if page_text:
-                                extracted_text += f"\n--- Page {page_num + 1} ---\n{page_text}"
-                
-                    if extracted_text.strip():
-                        logger.info(
-                            "✅ Extracted %d characters from PDF using pdfplumber",
-                            len(extracted_text),
-                        )
-                        return extracted_text. strip()
-                    else:
-                        logger.warning("pdfplumber extraction returned empty text")
-                    
-                except ImportError: 
-                    logger.error("Neither PyPDF2 nor pdfplumber is installed.  Please install one:  pip install PyPDF2 or pip install pdfplumber")
-                except Exception as pdfplumber_error:
-                    logger.warning(f"pdfplumber extraction failed: {pdfplumber_error}")
-            
-                # If all PDF extraction methods fail, return empty
-                logger.error("All PDF extraction methods failed")
-                return ""
 
         except Exception as e:
-            logger.error("❌ Text extraction failed:  %s", e, exc_info=True)
+            logger.error("❌ Text extraction failed: %s", e, exc_info=True)
             return ""
-
-
 
     # -------------------------------------------------------------------------
     # ANALYSIS
@@ -421,12 +396,7 @@ IMPORTANT OUTPUT RULES:
 - Do NOT include any additional text before or after the JSON.
 """
 
-            response = self.model.generate_content(
-                prompt,
-                request_options={"timeout": self.request_timeout},
-            )
-
-            response_text = (response.text or "").strip()
+            response_text = self._generate_with_fallback(prompt)
             analysis_obj = self._parse_json_response(response_text)
 
             if analysis_obj is None:
@@ -452,30 +422,10 @@ IMPORTANT OUTPUT RULES:
                 analysis_obj.get("critical_count"),
             )
 
-            # Extract summary - try multiple possible field names
-            summary = (
-                analysis_obj.get("formatted_summary") 
-                or analysis_obj.get("summary")
-                or analysis_obj.get("executive_summary")
-                or analysis_obj.get("overall_health_assessment")
-                or ""
-            )
-            
-            # If still no summary, generate one from the analysis
-            if not summary and analysis_obj.get("parameters"):
-                summary = self._generate_summary_from_parameters(analysis_obj)
-
-            logger.info(
-                "✅ Detailed analysis complete: test_type=%s, abnormal=%s, critical=%s",
-                analysis_obj.get("test_type"),
-                analysis_obj.get("abnormal_count"),
-                analysis_obj.get("critical_count"),
-            )
-
             return {
-                "success":  True,
+                "success": True,
                 "analysis": analysis_obj,
-                "summary":  summary,
+                "summary": analysis_obj.get("formatted_summary", ""),
                 "abnormal_values": analysis_obj.get("parameters", []),
                 "recommendations": analysis_obj.get("recommendations", []),
                 "critical_flags": analysis_obj.get("critical_flags", []),
@@ -488,10 +438,9 @@ IMPORTANT OUTPUT RULES:
                 "overall_health_assessment": analysis_obj.get(
                     "overall_health_assessment", ""
                 ),
-                "urgency_level": analysis_obj. get("urgency_level", "Routine"),
+                "urgency_level": analysis_obj.get("urgency_level", "Routine"),
                 "follow_up_needed": analysis_obj.get("follow_up_needed", False),
             }
-
 
         except Exception as e:
             logger.error("❌ Report analysis failed: %s", e, exc_info=True)
@@ -504,12 +453,12 @@ IMPORTANT OUTPUT RULES:
     # INTERNAL HELPERS
     # -------------------------------------------------------------------------
 
-    def _parse_json_response(self, response_text:  str) -> Optional[Dict[str, Any]]:
+    def _parse_json_response(self, response_text: str) -> Optional[Dict[str, Any]]:
         """
-        Parse Gemini's JSON response with robust error handling.
+        Parse Gemini's JSON response.
 
-        Handles cases where the model might accidentally include backticks,
-        markdown fences, or return truncated JSON.
+        Handles cases where the model might accidentally include backticks or
+        markdown fences, but prefers direct JSON.
 
         Args:
             response_text: Raw string returned by Gemini.
@@ -517,308 +466,33 @@ IMPORTANT OUTPUT RULES:
         Returns:
             Parsed JSON dict, or None on failure.
         """
-        import re
-        
         if not response_text:
             return None
 
         try:
-            # Step 1: Clean the response - remove markdown code fences
-            cleaned = response_text.strip()
-            
-            # Remove ```json and ``` markers
-            if cleaned.startswith("```json"):
-                cleaned = cleaned[7:]
-            elif cleaned.startswith("```"):
-                cleaned = cleaned[3:]
-            
-            if cleaned.endswith("```"):
-                cleaned = cleaned[:-3]
-            
-            cleaned = cleaned.strip()
+            # If response is already pure JSON
+            if response_text.strip().startswith("{"):
+                return json.loads(response_text)
 
-            # Step 2: Try direct parsing first
-            if cleaned.startswith("{"):
-                try:
-                    return json.loads(cleaned)
-                except json. JSONDecodeError:
-                    pass  # Continue to repair attempts
-
-            # Step 3: Extract JSON from response if wrapped in other text
-            if "{" in cleaned and "}" in cleaned:
-                start = cleaned.find("{")
-                end = cleaned. rfind("}") + 1
-                json_text = cleaned[start:end]
-                
-                try:
-                    return json.loads(json_text)
-                except json.JSONDecodeError:
-                    cleaned = json_text  # Use extracted portion for repair
-
-            # Step 4: Try to repair truncated JSON
-            # Count unmatched braces and brackets
-            open_braces = cleaned.count('{') - cleaned.count('}')
-            open_brackets = cleaned.count('[') - cleaned.count(']')
-            
-            if open_braces > 0 or open_brackets > 0:
-                logger.info(f"Attempting JSON repair:  {open_braces} unclosed braces, {open_brackets} unclosed brackets")
-                
-                # Fix unclosed strings (common truncation issue)
-                # Check if we're in the middle of a string
-                quote_count = cleaned.count('"') - cleaned.count('\\"')
-                if quote_count % 2 != 0:
-                    # Add closing quote
-                    cleaned += '"'
-                
-                # Close any open arrays and objects
-                cleaned += ']' * open_brackets
-                cleaned += '}' * open_braces
-                
-                try:
-                    result = json.loads(cleaned)
-                    logger.info("✅ JSON repair successful")
-                    return result
-                except json.JSONDecodeError as e:
-                    logger.warning(f"JSON repair attempt failed: {e}")
-
-            # Step 5: Try more aggressive repair - find last complete object
-            try:
-                # Find the last properly closed structure
-                brace_count = 0
-                last_valid_end = 0
-                in_string = False
-                escape_next = False
-                
-                for i, char in enumerate(cleaned):
-                    if escape_next:
-                        escape_next = False
-                        continue
-                    if char == '\\':
-                        escape_next = True
-                        continue
-                    if char == '"':
-                        in_string = not in_string
-                        continue
-                    if in_string:
-                        continue
-                    
-                    if char == '{':
-                        brace_count += 1
-                    elif char == '}':
-                        brace_count -= 1
-                        if brace_count == 0:
-                            last_valid_end = i + 1
-                
-                if last_valid_end > 0:
-                    truncated = cleaned[: last_valid_end]
-                    try:
-                        result = json. loads(truncated)
-                        logger.info(f"✅ Parsed truncated JSON (used {last_valid_end} of {len(cleaned)} chars)")
-                        return result
-                    except json.JSONDecodeError:
-                        pass
-                        
-            except Exception as e: 
-                logger.warning(f"Advanced JSON repair failed: {e}")
-
-            # Step 6: Last resort - return a structured fallback with raw content
-            logger.error("❌ All JSON parsing attempts failed")
-            logger.error("Response preview (first 500 chars): %s", response_text[:500])
-            
-            # Return a fallback structure instead of None
-            return {
-                "test_type": "Lab Report Analysis",
-                "report_date":  None,
-                "patient_name": None,
-                "parameters": [],
-                "abnormal_count": 0,
-                "normal_count": 0,
-                "critical_count": 0,
-                "formatted_summary": self._create_fallback_summary(response_text),
-                "overall_health_assessment": "Unable to fully parse the lab report. Please review the raw analysis below.",
-                "pattern_analysis": "",
-                "critical_flags": [],
-                "recommendations": ["Please consult with your healthcare provider for proper interpretation. "],
-                "follow_up_needed": True,
-                "urgency_level": "Routine",
-                "overall_status": "Analysis requires manual review",
-                "raw_response": response_text[: 5000],  # Include raw for debugging
-                "parse_error": True
-            }
-
-        except Exception as e:
-            logger.error("❌ JSON parsing error: %s", e, exc_info=True)
-            return None
-
-    def _create_fallback_summary(self, raw_text: str) -> str:
-        """Create a formatted fallback summary from raw response."""
-        
-        # Try to extract useful content from the raw response
-        summary = """
-## 📋 Lab Report Analysis
-
-### ⚠️ Partial Analysis
-
-The system encountered an issue formatting the complete analysis. 
-Below is the available information: 
-
----
-
-"""
-        # Try to extract any readable content
-        if "parameters" in raw_text. lower() or "test" in raw_text.lower():
-            # Clean up the raw text for display
-            clean_text = raw_text.replace("```json", "").replace("```", "")
-            
-            # Limit length
-            if len(clean_text) > 3000:
-                clean_text = clean_text[:3000] + "\n\n... (truncated)"
-            
-            summary += clean_text
-        
-        summary += """
-
----
-
-### ⚠️ Important Notice
-
-This analysis may be incomplete.  Please: 
-1. Try uploading the report again
-2. Ensure the image/PDF is clear and readable
-3. Consult with your healthcare provider for proper interpretation
-
-"""
-        return summary
-
-        def _generate_summary_from_parameters(self, analysis_obj:  Dict[str, Any]) -> str:
-            """Generate a formatted summary from parsed parameters when formatted_summary is missing."""
-        
-            test_type = analysis_obj.get("test_type", "Lab Report")
-            patient_name = analysis_obj.get("patient_name", "Patient")
-            report_date = analysis_obj.get("report_date", "N/A")
-            parameters = analysis_obj.get("parameters", [])
-        
-            normal_count = analysis_obj.get("normal_count", 0)
-            abnormal_count = analysis_obj.get("abnormal_count", 0)
-            critical_count = analysis_obj.get("critical_count", 0)
-        
-            # Build summary
-            summary = f"""## 📋 Lab Report Analysis for {patient_name}
-
-### 🏥 Report Overview
-- **Test Date:** {report_date}
-- **Test Type:** {test_type}
-- **Total Parameters:** {len(parameters)} tested | {normal_count} normal | {abnormal_count} abnormal
-
----
-
-### 📊 Executive Summary
-
-{analysis_obj.get('overall_health_assessment', 'Analysis completed.  Please review the detailed results below.')}
-
----
-
-### 🔬 Detailed Parameter Analysis
-
-"""
-        
-            # Separate normal and abnormal parameters
-            normal_params = []
-            abnormal_params = []
-        
-            for param in parameters:
-                status = param.get("status", "").lower()
-                if status in ["normal", "within range", "ok"]:
-                    normal_params. append(param)
-                else:
-                    abnormal_params.append(param)
-        
-            # Normal results table
-            if normal_params:
-                summary += """#### 🟢 NORMAL RESULTS (brief overview)
-
-| Parameter | Your Value | Normal Range | Status |
-|-----------|------------|--------------|--------|
-"""
-                for param in normal_params[: 10]:  # Limit to 10 for brevity
-                    name = param.get("name", "Unknown")
-                    value = param.get("value", "N/A")
-                    unit = param.get("unit", "")
-                    normal_range = param.get("normal_range", "N/A")
-                    summary += f"| {name} | {value} {unit} | {normal_range} | ✅ Normal |\n"
-            
-                if len(normal_params) > 10:
-                    summary += f"\n*... and {len(normal_params) - 10} more normal results*\n"
-        
-            summary += "\n---\n\n"
-        
-            # Abnormal results - detailed
-            if abnormal_params: 
-                summary += "#### 🟡🟠🔴 ABNORMAL RESULTS (detailed analysis)\n\n"
-            
-                for i, param in enumerate(abnormal_params, 1):
-                    name = param.get("name", "Unknown")
-                    value = param. get("value", "N/A")
-                    unit = param.get("unit", "")
-                    normal_range = param.get("normal_range", "N/A")
-                    status = param.get("status", "Abnormal")
-                    icon = param.get("icon", "🟡")
-                    clinical_significance = param.get("clinical_significance", "")
-                    interpretation = param.get("your_result_interpretation", "")
-                    possible_causes = param.get("possible_causes", [])
-                    dietary_recs = param.get("dietary_recommendations", [])
-                
-                    summary += f"""**{i}. {name}:  {value} {unit} — {icon} {status}**
-
-📌 **What This Test Measures:**
-{clinical_significance or 'This parameter is used to assess your health status. '}
-
-📈 **Your Result:**
-- Your value: {value} {unit}
-- Normal range: {normal_range}
-
-🔍 **Interpretation:**
-{interpretation or 'This value is outside the normal range and may require attention.'}
-
-"""
-                    if possible_causes:
-                        summary += "❓ **Possible Causes:**\n"
-                        for cause in possible_causes[: 3]: 
-                            summary += f"- {cause}\n"
-                        summary += "\n"
-                
-                    if dietary_recs:
-                        summary += "🥗 **Dietary Recommendations:**\n"
-                        for rec in dietary_recs[:3]: 
-                            summary += f"- {rec}\n"
-                        summary += "\n"
-                
-                    summary += "---\n\n"
+            # Handle markdown code fences
+            if "```json" in response_text:
+                json_text = response_text.split("```json", 1)[1].split("```", 1)[0]
+            elif "```" in response_text:
+                json_text = response_text.split("```", 1)[1].split("```", 1)[0]
+            elif "{" in response_text and "}" in response_text:
+                start = response_text.find("{")
+                end = response_text.rfind("}") + 1
+                json_text = response_text[start:end]
             else:
-                summary += "#### ✅ All Results Normal\n\nGreat news! All your test parameters are within normal ranges.\n\n---\n\n"
-        
-            # Recommendations
-            recommendations = analysis_obj.get("recommendations", [])
-            if recommendations: 
-                summary += "### 🎯 Recommendations\n\n"
-                for rec in recommendations: 
-                    summary += f"- {rec}\n"
-                summary += "\n---\n\n"
-        
-            # Pattern Analysis
-            pattern_analysis = analysis_obj.get("pattern_analysis", "")
-            if pattern_analysis:
-                summary += f"### 🔗 Pattern Analysis\n\n{pattern_analysis}\n\n---\n\n"
-        
-            # Disclaimer
-            summary += """### ⚠️ Important Disclaimer
+                logger.error("No JSON-like content found in response.")
+                return None
 
-This AI-generated analysis is for educational purposes only. 
-Always consult with your healthcare provider for proper medical interpretation and treatment decisions.
-"""
-        
-            return summary
+            return json.loads(json_text.strip())
 
+        except json.JSONDecodeError as e:
+            logger.error("❌ JSON parsing error: %s", e)
+            logger.error("Response preview (first 500 chars): %s", response_text[:500])
+            return None
 
     # -------------------------------------------------------------------------
     # EMBEDDING TEXT GENERATION

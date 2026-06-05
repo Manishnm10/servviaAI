@@ -486,10 +486,10 @@ class Messages(TimeStampMixin):
     feedback = models.CharField(max_length=4096, null=True)
     input_type = models.CharField(max_length=20, choices=INPUT_TYPES, null=True)
     input_language_detected = models.CharField(max_length=20, null=True)
-    retrieved_chunks = models.ManyToManyField(LangchainPgEmbedding, blank=True)
+    retrieved_chunks = models.ManyToManyField(LangchainPgEmbedding, null=True)
     condensed_question = models.CharField(max_length=20000, null=True)
-    prompt_usage = models.JSONField(default=dict, null=True)
-    output = models.JSONField(default=dict, null=True)
+    prompt_usage = models.JSONField(default={}, null=True)
+    output = models.JSONField(default={}, null=True)
     # class Meta:
     #     table_name = "messages"
 

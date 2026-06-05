@@ -322,7 +322,7 @@ class TestCasesResourceManagement(TestCase):
 
     
     # def test_resource_management_create(self):
-    #     with open('/Users/akshatanaik/Akshata/vistar_fs/farmstack-backend/datahub/tests/test_data/dummy.pdf', 'rb') as f:
+    #     with open('/Users/akshatanaik/Akshata/vistar_fs/servvia-backend/datahub/tests/test_data/dummy.pdf', 'rb') as f:
     #         file_data = f.read()
 
     #     form_data = {

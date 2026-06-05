@@ -49,12 +49,56 @@ class Config:
     OUT_OF_CONTEXT_PROMPT = ENV_CONFIG.get("OUT_OF_CONTEXT_PROMPT")
     RESPONSE_GEN_PROMPT = ENV_CONFIG.get("RESPONSE_GEN_PROMPT")
 
-    
+    # Azure OpenAI config
+    AZURE_OPENAI_API_KEY = ENV_CONFIG.get("AZURE_OPENAI_API_KEY")
+    AZURE_OPENAI_ENDPOINT = ENV_CONFIG.get("AZURE_OPENAI_ENDPOINT")
+    AZURE_OPENAI_API_VERSION = ENV_CONFIG.get("AZURE_OPENAI_API_VERSION", "2025-01-01-preview")
+    # Backward-compat stubs — keeps tts.py and any legacy code from crashing
+    OPEN_AI_KEY = None
+    OPENAI_BASE_URL = None
+    # Three-model architecture:
+    #   MASTER (gpt-4.1)      — Diagnostician: frontier clinical reasoning, temp=0.2
+    #   BRAIN  (gpt-4.1-mini) — Critic/Safety: fast verification, temp=0
+    #   CHAT   (gpt-4.1-mini) — Proposer/Lab/TTS/OCR: general-purpose, temp=0.3
+    MODEL_MASTER = ENV_CONFIG.get("MODEL_MASTER", "gpt-4.1")
+    MODEL_BRAIN = ENV_CONFIG.get("MODEL_BRAIN", "gpt-4.1-mini")
+    MODEL_CHAT = ENV_CONFIG.get("MODEL_CHAT", "gpt-4.1-mini")
 
-    # openAI config
-    OPEN_AI_KEY = ENV_CONFIG.get("OPENAI_API_KEY")
-    GPT_3_MODEL = ENV_CONFIG.get("GPT_3_MODEL", "gpt-3.5-turbo")
-    GPT_4_MODEL = ENV_CONFIG.get("GPT_4_MODEL", "gpt-4-0125-preview")
+    # Speech-to-Text fallback (OpenAI Whisper). Primary STT is Gemini (see
+    # voice_asr.py); Whisper is the fallback. Read the direct OpenAI key under
+    # either common name.
+    OPENAI_WHISPER_KEY = (
+        ENV_CONFIG.get("OPENAI_API_KEY")
+        or ENV_CONFIG.get("OPEN_AI_KEY")
+        or os.environ.get("OPENAI_API_KEY")
+        or os.environ.get("OPEN_AI_KEY")
+    )
+
+    # Reasoning models that don't support temperature parameter
+    # These models use reasoning_effort instead
+    REASONING_MODELS = {"o3-mini", "o3", "o4-mini"}
+
+    # Reasoning effort per model (only for REASONING_MODELS)
+    REASONING_EFFORT = {
+        "o3-mini": "high",
+        "o3": "high",
+        "o4-mini": "medium",
+    }
+
+    # Groq fallback — used when primary OpenAI/GitHub Models hits 429 rate limit
+    GROQ_API_KEY = ENV_CONFIG.get("GROQ_API_KEY") or os.environ.get("GROQ_API_KEY")
+    GROQ_FALLBACK_MODELS = {
+        "diagnostician": "llama-3.3-70b-versatile",
+        "proposer": "llama-3.1-8b-instant",
+        "critic": "llama-3.3-70b-versatile",
+        "lab_summarizer": "llama-3.3-70b-versatile",
+    }
+
+    # Legacy aliases (backwards compat for code that references old names)
+    GPT_3_MODEL = MODEL_CHAT      # → gpt-4.1-mini
+    GPT_4_MODEL = MODEL_CHAT      # → gpt-4.1-mini
+    GPT_5_MINI_MODEL = MODEL_MASTER  # → gpt-4.1
+
     TEMPERATURE = ENV_CONFIG.get("TEMPERATURE", 0)
     MAX_TOKENS = ENV_CONFIG.get("MAX_TOKENS", 500)
     CHAT_HISTORY_WINDOW = ENV_CONFIG.get("CHAT_HISTORY_WINDOW", 4)
@@ -64,6 +108,7 @@ class Config:
     CONTENT_AUTHENTICATE_ENDPOINT = ENV_CONFIG.get("CONTENT_AUTHENTICATE_ENDPOINT")
     CONTENT_RETRIEVAL_ENDPOINT = ENV_CONFIG.get("CONTENT_RETRIEVAL_ENDPOINT")
     FARMSTACK_ORG_ID = ENV_CONFIG.get("FARMSTACK_ORG_ID", "1")
+    FARMSTACK_RETRIEVAL_EMAIL = ENV_CONFIG.get("FARMSTACK_RETRIEVAL_EMAIL", "")
 
     # Language
     LANGUAGE_BCP_CODE_NATIVE = ENV_CONFIG.get("LANGUAGE_BCP_CODE_NATIVE", "en-US")
@@ -71,10 +116,12 @@ class Config:
 
     # Translation
     GOOGLE_APPLICATION_CREDENTIALS = ENV_CONFIG.get("GOOGLE_APPLICATION_CREDENTIALS")
-    
-    GCP_TRANSLATION_CREDENTIALS_PATH = ENV_CONFIG.get(
-        "GCP_TRANSLATION_CREDENTIALS_PATH", 
-        GOOGLE_APPLICATION_CREDENTIALS
-    )
-    # Gemini API for skin disease detection
-    GOOGLE_API_KEY = ENV_CONFIG.get("GOOGLE_API_KEY")
+
+    # Google Cloud Speech-to-Text v2 (chirp_2 — hint-free auto language detection)
+    #   GOOGLE_CLOUD_PROJECT: GCP project id (defaults to the service-account file's
+    #     project_id if left unset — resolved lazily in voice_asr.py).
+    #   GOOGLE_SPEECH_LOCATION: a region where chirp_2 + auto LID is enabled.
+    #     us-central1 is the most broadly available; asia-southeast1 is closer to
+    #     India if enabled for your project.
+    GOOGLE_CLOUD_PROJECT = ENV_CONFIG.get("GOOGLE_CLOUD_PROJECT")
+    GOOGLE_SPEECH_LOCATION = ENV_CONFIG.get("GOOGLE_SPEECH_LOCATION", "us-central1")

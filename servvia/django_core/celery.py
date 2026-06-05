@@ -1,6 +1,6 @@
 import os
 from celery import Celery, signals
-from database.database_config import pooled_db_conn
+from legacy_healthcare.database.database_config import pooled_db_conn
 
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "django_core.settings")

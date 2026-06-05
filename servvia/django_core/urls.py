@@ -17,8 +17,9 @@ def api_ping(request):
 urlpatterns = [
     path("admin/", admin.site.urls),
 
-    # API Modules
+    # API Modules — New ServVia 3.0 Pipeline
     path("api/", include("api.urls")),
+    path("api/legacy/", include("legacy_healthcare.api.urls")),
     path("api/profile/", include("user_profile.urls")),
 
     # ServVia CV Modules

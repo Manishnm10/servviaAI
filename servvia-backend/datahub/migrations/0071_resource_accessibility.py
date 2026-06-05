@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("datahub", "0069_alter_messages_bot_type"),
+        ("datahub", "0070_alter_langchainpgembedding_collection"),
     ]
 
     operations = [

@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import UserMedicalProfile, ChatSession, ChatMessage, MedicalImageAnalysis, LabReportAnalysis
+from .models import UserMedicalProfile, ChatSession, ChatMessage, MedicalImageAnalysis
 
 class UserMedicalProfileSerializer(serializers.ModelSerializer):
     contraindications = serializers.SerializerMethodField()
@@ -33,19 +33,3 @@ class MedicalImageAnalysisSerializer(serializers.ModelSerializer):
         model = MedicalImageAnalysis
         fields = '__all__'
         read_only_fields = ['user', 'analysis_result', 'detected_conditions']
-
-
-class LabReportAnalysisSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = LabReportAnalysis
-        fields = [
-            'id', 'user', 'report_file', 'report_type', 
-            'extracted_text', 'analysis_result', 'summary', 
-            'abnormal_findings', 'personalized_recommendations',
-            'requires_doctor_consultation', 'created_at'
-        ]
-        read_only_fields = [
-            'id', 'extracted_text', 'analysis_result', 'summary',
-            'abnormal_findings', 'personalized_recommendations', 
-            'requires_doctor_consultation', 'created_at'
-        ]

@@ -12,14 +12,22 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 def _str_to_bool(val) -> bool:
     return str(val).strip().lower() in ("1", "true", "t", "yes", "y", "on")
 
-SECRET_KEY = ENV_CONFIG.get(
-    "DJANGO_SECRET_KEY",
-    "django-insecure-u2qgzlifwas@g&5!s43n#e7etopvjli#=1g)xa@26o3pfgg6i5",
-)
+SECRET_KEY = ENV_CONFIG.get("DJANGO_SECRET_KEY")
+if not SECRET_KEY:
+    import secrets
+    SECRET_KEY = secrets.token_urlsafe(50)
+    import sys
+    sys.__stderr__.write(
+        "\n[WARN] DJANGO_SECRET_KEY not set in .env — using random key "
+        "(sessions will reset on restart). Set DJANGO_SECRET_KEY in .env for production.\n\n"
+    )
+    sys.__stderr__.flush()
 
 DEBUG = _str_to_bool(ENV_CONFIG.get("DJANGO_DEBUG_MODE", False))
 
-ALLOWED_HOSTS = ["*"]
+ALLOWED_HOSTS = ENV_CONFIG.get(
+    "ALLOWED_HOSTS", "localhost,127.0.0.1,0.0.0.0"
+).split(",")
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -37,6 +45,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    "api.middleware.PipelineLoggingMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "corsheaders.middleware.CorsMiddleware",
@@ -47,7 +56,14 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-CORS_ALLOW_ALL_ORIGINS = True
+# CORS: restrict in production, allow all for local development
+_cors_origins = ENV_CONFIG.get("CORS_ALLOWED_ORIGINS", "")
+if _cors_origins:
+    CORS_ALLOW_ALL_ORIGINS = False
+    CORS_ALLOWED_ORIGINS = [o.strip() for o in _cors_origins.split(",") if o.strip()]
+else:
+    # Local dev default — allow all
+    CORS_ALLOW_ALL_ORIGINS = True
 
 ROOT_URLCONF = "django_core.urls"
 
@@ -107,6 +123,10 @@ REST_FRAMEWORK = {
     ],
 }
 
+# Prevent Django from overriding our custom ColoredFormatter logging setup.
+# Without this, Django's DEFAULT_LOGGING replaces the 'console' handler
+# and our colored, timestamped log lines disappear after startup.
+LOGGING_CONFIG = None
 configure_logging()
 
 # ============================================

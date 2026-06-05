@@ -1,7 +1,7 @@
 # System Requirements
 
 ## Hardware Requirements
-Below is a table specifying typical hosting server requirements for FarmStack.
+Below is a table specifying typical hosting server requirements for ServVia Backend.
 
 | Requirement Category | Specification Detail      | Notes/Comments                                                                           |
 |----------------------|---------------------------|------------------------------------------------------------------------------------------|
@@ -16,11 +16,11 @@ Below is a table specifying typical hosting server requirements for FarmStack.
 *As the application continues to evolve, System Requirements are subject to change based on technological advancements and operational needs.*
 
 ## Software Requirements
-Once the hardware requirements are met, a few prerequisites need to be installed to run the FarmStack application seamlessly.
+Once the hardware requirements are met, a few prerequisites need to be installed to run the ServVia Backend application seamlessly.
 
 ### Docker
 
-The tech stack of FarmStack is as follows:
+The tech stack of ServVia Backend is as follows:
 
 | Application Stack | Notes/Comments |
 |-------------------|----------------|

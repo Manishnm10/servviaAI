@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("datahub", "0067_alter_resourceusagepolicy_type_messages"),
+        ("datahub", "0068_alter_messages_retrieved_chunks"),
     ]
 
     operations = [

@@ -1,6 +1,6 @@
 # FS Installation Guide (Development Environment)
 
-This guide provides detailed steps to set up the FarmStack development environment, including both frontend and backend setup.
+This guide provides detailed steps to set up the ServVia Backend development environment, including both frontend and backend setup.
 
 ## Prerequisites
 
@@ -14,18 +14,18 @@ Before proceeding, ensure you have the following installed on your local machine
 
 ## Installation
 
-### FarmStack Frontend
+### ServVia Backend Frontend
 
 1. **Clone the repository to your local machine:**
 
     ```bash
-    git clone https://github.com/digitalgreenorg/farmstack-frontend
+    git clone servvia-backend-frontend
     ```
 
 2. **Navigate to the project directory:**
 
     ```bash
-    cd farmstack-frontend
+    cd servvia-backend-frontend
     ```
 
 3. **Install the required dependencies using npm:**
@@ -36,7 +36,7 @@ Before proceeding, ensure you have the following installed on your local machine
 
 ### Configuration
 
-The FarmStack React App requires specific environment variables to be set for proper functionality. These variables configure the app's behavior and access to external services.
+The ServVia Backend React App requires specific environment variables to be set for proper functionality. These variables configure the app's behavior and access to external services.
 
 1. **Set up the environment variables:**
 
@@ -44,16 +44,16 @@ The FarmStack React App requires specific environment variables to be set for pr
    - Open the `.env` file and add the following variables:
 
     ```bash
-    REACT_APP_BASEURL="https://datahubethdev.farmstack.co/be/"
-    REACT_APP_BASEURL_without_slash="https://datahubethdev.farmstack.co/be"
-    REACT_APP_BASEURL_without_slash_view_data="http://datahubethdev.farmstack.co:"
+    REACT_APP_BASEURL="https://datahubethdev.servvia-backend.co/be/"
+    REACT_APP_BASEURL_without_slash="https://datahubethdev.servvia-backend.co/be"
+    REACT_APP_BASEURL_without_slash_view_data="http://datahubethdev.servvia-backend.co:"
     REACT_APP_DEV_MODE="true"
     ```
 
-    - If you are running your own FarmStack backend, replace the URLs appropriately.
+    - If you are running your own ServVia Backend backend, replace the URLs appropriately.
     - Make sure to replace the values with the correct URLs and settings for your environment.
 
-2. **Start the FarmStack React App:**
+2. **Start the ServVia Backend React App:**
 
     ```bash
     npm start
@@ -63,12 +63,12 @@ The FarmStack React App requires specific environment variables to be set for pr
 
 ### Backend Repository
 
-#### Prerequisites to Run FarmStack Backend
+#### Prerequisites to Run ServVia Backend Backend
 
-1. **Clone the farmstack-backend repository:**
+1. **Clone the servvia-backend repository:**
 
     ```bash
-    git clone https://github.com/digitalgreenorg/farmstack-backend.git
+    git clone servvia-backend.git
     ```
 
 2. **Set up a PostgreSQL or MySQL database on your local machine:**
@@ -88,20 +88,20 @@ The FarmStack React App requires specific environment variables to be set for pr
 
 3. **Create a user and database in PostgreSQL:**
 
-    After installing PostgreSQL, create a database and user to be used by FarmStack.
+    After installing PostgreSQL, create a database and user to be used by ServVia Backend.
 
 4. **Set up SendGrid for email services:**
 
     - Create a SendGrid account and generate an API key.
     - Verify sender authenticity within SendGrid.
 
-5. **Create an environment file (.env) in the `farmstack-backend` directory:**
+5. **Create an environment file (.env) in the `servvia-backend` directory:**
 
     Replace the placeholder values appropriately:
 
     ```bash
     PUBLIC_DOMAIN={BACKEND_URL}
-    DATAHUB_NAME=Farmstack
+    DATAHUB_NAME=ServVia Backend
     DATAHUB_SITE={BACKEND_URL}
     POSTGRES_DB={DATABASE}
     POSTGRES_USER={DB_USER}
@@ -115,7 +115,7 @@ The FarmStack React App requires specific environment variables to be set for pr
 6. **Install the required Python dependencies:**
 
     ```bash
-    cd farmstack-backend
+    cd servvia-backend
     pip install -r requirements.txt
     ```
 
@@ -136,4 +136,4 @@ The FarmStack React App requires specific environment variables to be set for pr
 
 ## Conclusion
 
-You have now set up both the frontend and backend of the FarmStack development environment. This setup allows you to work on and test the application locally before deploying it to a production environment.
+You have now set up both the frontend and backend of the ServVia Backend development environment. This setup allows you to work on and test the application locally before deploying it to a production environment.

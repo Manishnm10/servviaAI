@@ -1,8 +1,16 @@
+import json
+import queue
+import threading
+import time as _time
+
+from django.http import StreamingHttpResponse
+from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
 from .models import SkinAnalysis
 from .disease_detector import SkinDiseaseDetector, detect_skin_disease_gemini, validate_skin_image
+from edge.skin_classifier import classify_skin_image, edge_result_to_gemini_format, is_ollama_available
 import logging
 import tempfile
 import os
@@ -14,7 +22,7 @@ detector = SkinDiseaseDetector()
 
 # Import Trust Engine
 try:
-    from servvia2.trust_engine.engine import TrustEngine
+    from core_temporal.trust_engine.engine import TrustEngine
     TRUST_ENGINE_AVAILABLE = True
     trust_engine = TrustEngine()
     logger.info("✅ Trust Engine integrated with Skin Analysis")
@@ -65,8 +73,29 @@ def analyze_skin_image(request):
                 'suggestion': 'Please upload a clear photograph of the affected skin area.'
             }, status=status.HTTP_400_BAD_REQUEST)
 
-        # Detect skin disease using Gemini
-        result = detect_skin_disease_gemini(temp_path)
+        # ── Analysis (respects user-selected mode) ──
+        analysis_mode = request.data.get('analysis_mode', 'cloud').strip().lower()
+        result = None
+        edge_used = False
+
+        if analysis_mode == 'edge':
+            # Edge-only: local Ollama, no cloud fallback
+            edge_raw = classify_skin_image(temp_path)
+            if edge_raw is not None:
+                result = edge_result_to_gemini_format(edge_raw)
+                if result is not None:
+                    edge_used = True
+                    logger.info(f"[EDGE] Skin analysis: {result['disease']} ({edge_raw['confidence']}%) in {edge_raw.get('edge_inference_time', '?')}s")
+            if result is None:
+                if temp_path and os.path.exists(temp_path):
+                    os.unlink(temp_path)
+                return Response({
+                    'success': False,
+                    'error': 'Edge AI could not classify this image. Try Cloud mode for better accuracy.'
+                }, status=status.HTTP_422_UNPROCESSABLE_ENTITY)
+        else:
+            # Cloud mode: Gemini directly
+            result = detect_skin_disease_gemini(temp_path)
 
         # Clean up temp file
         if temp_path and os.path.exists(temp_path):
@@ -163,62 +192,115 @@ def validate_skin_recommendations(disease, user_profile):
             'Acne': 'acne',
             'Eczema (Atopic Dermatitis)': 'eczema',
             'Psoriasis (mild forms)': 'psoriasis',
+            'Psoriasis': 'psoriasis',
             'Heat Rash (Prickly Heat)': 'heat rash',
             'Hives (Urticaria)': 'hives',
             'Sunburn': 'burns',
             'Dry Skin (Xerosis)': 'dry skin',
             'Fungal Infections (Ringworm, Athlete\'s Foot)': 'fungal infection',
+            'Athlete\'s Foot': 'fungal infection',
+            'Jock Itch': 'fungal infection',
             'Contact Dermatitis': 'dermatitis',
             'Dandruff (Seborrheic Dermatitis)': 'dandruff',
+            'Allergic Rash (Mild Allergic Dermatitis)': 'rash',
+            'Scalp Folliculitis': 'skin',
+            'Cold Sores': 'cold sores',
+            'Rosacea': 'skin',
         }
 
-        mapped_condition = condition_map.get(disease, disease.lower())
-        evidence_remedies = trust_engine.get_evidence_for_condition(mapped_condition)
+        # Herbs known to Trust Engine, mapped per condition
+        condition_herb_map = {
+            'acne': ['tea tree', 'honey', 'turmeric', 'neem'],
+            'eczema': ['coconut oil', 'aloe vera', 'honey', 'turmeric'],
+            'psoriasis': ['aloe vera', 'turmeric', 'coconut oil', 'tea tree', 'honey'],
+            'heat rash': ['aloe vera', 'turmeric', 'coconut oil'],
+            'hives': ['aloe vera', 'honey', 'turmeric'],
+            'burns': ['aloe vera', 'honey', 'coconut oil'],
+            'dry skin': ['coconut oil', 'aloe vera', 'honey'],
+            'fungal infection': ['garlic', 'turmeric', 'tea tree'],
+            'dermatitis': ['aloe vera', 'coconut oil', 'turmeric'],
+            'dandruff': ['tea tree', 'coconut oil', 'aloe vera'],
+            'rash': ['aloe vera', 'honey', 'turmeric'],
+            'skin': ['aloe vera', 'turmeric', 'honey'],
+            'cold sores': ['honey', 'aloe vera', 'garlic'],
+        }
+
+        mapped_condition = condition_map.get(disease, disease.lower().split('(')[0].strip())
+        herbs_to_check = condition_herb_map.get(mapped_condition, ['aloe vera', 'turmeric', 'honey'])
 
         user_meds = user_profile.get('current_medications', [])
         user_allergies = user_profile.get('allergies', [])
 
+        evidence_level_tier = {
+            'high': 1, 'moderate': 2, 'low_to_moderate': 2,
+            'low': 3, 'very_low': 4, 'insufficient': 5,
+        }
+        tier_labels = {1: "Clinical Trials", 2: "Mechanistic Studies", 3: "Traditional Use", 4: "Anecdotal", 5: "Theoretical"}
+        base_scores = {1: 9.5, 2: 8.0, 3: 6.0, 4: 4.0, 5: 2.0}
+
         validated_remedies = []
         warnings = []
 
-        for remedy in evidence_remedies:
-            herb_name = remedy['herb']
-
+        for herb_name in herbs_to_check:
             # Allergy check
-            if herb_name.lower() in [a.lower() for a in user_allergies]:
-                warnings.append(f"⚠️ Skipped {herb_name.title()} - you're allergic")
+            if any(herb_name.lower() in a.lower() or a.lower() in herb_name.lower()
+                   for a in user_allergies):
+                warnings.append(f"⚠️ Skipped {herb_name.title()} - allergy detected")
                 continue
 
-            # Drug interaction check
-            interaction = None
-            for med in user_meds:
-                interaction_check = trust_engine.check_single_interaction(herb_name, med)
-                if interaction_check:
-                    interaction = interaction_check
-                    break
+            # Get evidence from Trust Engine
+            evidence = trust_engine.get_evidence_for_herb(herb_name, mapped_condition)
 
-            tier = remedy['tier']
-            base_scores = {1: 9.5, 2: 8.0, 3: 6.0, 4: 4.0, 5: 2.0}
-            score = base_scores.get(tier, 5.0)
+            evidence_level = evidence.get('evidence_level', 'very_low') if evidence else 'very_low'
+            tier = evidence_level_tier.get(evidence_level, 4)
+            score = float(base_scores.get(tier, 5.0))
 
-            if interaction:
-                if interaction.severity.value in ['critical', 'high']:
-                    warnings.append(f"🚫 **{herb_name.title()}** contraindicated with {interaction.drug}: {interaction.effect}")
-                    continue
-                else:
-                    score -= 1.5
-                    warnings.append(f"⚠️ Use **{herb_name.title()}** with caution if taking {interaction.drug}")
+            # Check drug interactions from evidence data
+            has_interaction = False
+            skip = False
+            if evidence:
+                for drug_interaction in evidence.get('interactions', []):
+                    substance = drug_interaction.get('substance', '').lower()
+                    for med in user_meds:
+                        if med.lower() in substance or substance in med.lower():
+                            severity_val = drug_interaction.get('severity', 'moderate')
+                            effect = drug_interaction.get('description', 'possible interaction')
+                            if severity_val in ['critical', 'major']:
+                                warnings.append(f"🚫 **{herb_name.title()}** contraindicated with {med}: {effect}")
+                                skip = True
+                            else:
+                                score -= 1.5
+                                warnings.append(f"⚠️ Use **{herb_name.title()}** with caution if taking {med}")
+                                has_interaction = True
+                            break
+                    if skip:
+                        break
 
-            tier_labels = {1: "Clinical Trials", 2: "Mechanistic Studies", 3: "Traditional Use", 4: "Anecdotal", 5: "Theoretical"}
+            if skip:
+                continue
+
+            # Only show mechanism if evidence is for the same/related condition
+            # (avoids showing "heals burns" for psoriasis aloe vera entry)
+            mechanism = ''
+            if evidence:
+                ev_condition = evidence.get('condition', '').lower().replace('_', ' ')
+                mc = mapped_condition.lower()
+                if mc in ev_condition or ev_condition in mc or any(w in ev_condition for w in mc.split() if len(w) > 3):
+                    mechanism = evidence.get('summary', '')
+
+            dose = ''
+            if evidence and evidence.get('dosing'):
+                dosing = evidence['dosing']
+                dose = dosing.get('topical', dosing.get('adults', dosing.get('children', '')))
 
             validated_remedies.append({
                 'name': herb_name,
                 'score': round(score, 1),
                 'tier': tier,
-                'tier_label': tier_labels.get(tier, "Unknown"),
-                'mechanism': remedy.get('mechanism', ''),
-                'dose': remedy.get('dose', ''),
-                'has_interaction': interaction is not None
+                'tier_label': tier_labels.get(tier, "Traditional Use"),
+                'mechanism': mechanism,
+                'dose': str(dose) if dose else '',
+                'has_interaction': has_interaction,
             })
 
         validated_remedies.sort(key=lambda x: x['score'], reverse=True)
@@ -227,7 +309,7 @@ def validate_skin_recommendations(disease, user_profile):
             'remedies': validated_remedies[:6],
             'warnings': warnings,
             'condition_mapped': mapped_condition,
-            'total_found': len(evidence_remedies)
+            'total_found': len(validated_remedies),
         }
 
     except Exception as e:
@@ -276,19 +358,20 @@ Hi **{user_name}**! I've analyzed your skin image and here's what I found:
     report += """---
 ### 🧠 Why I Made This Diagnosis
 """
+    import re as _re
     if reasoning:
-        report += f"{reasoning}\n\n"
+        # Strip any internal model references — show only clinical reasoning
+        clean_reasoning = _re.sub(r'Edge AI \([^)]+\)\s*(classified as [^.]+\.?|—[^.]+\.?)\s*', '', reasoning).strip()
+        clean_reasoning = _re.sub(r'ServVia Edge AI\s*(classified as [^.]+\.?|—[^.]+\.?)\s*', '', clean_reasoning).strip()
+        report += f"{clean_reasoning}\n\n"
     else:
-        report += f"Based on my analysis, I identified this as **{disease}** because:\n\n"
-        if visual.get('lesion_count'):
-            count = visual.get('lesion_count')
-            report += f"- **Lesion Count:** {count} - {'Multiple lesions typical of this condition' if 'many' in str(count).lower() else 'Consistent with diagnosis'}\n"
-        if visual.get('lesion_size'):
-            report += f"- **Lesion Size:** {visual.get('lesion_size')} - Matches expected presentation\n"
-        if visual.get('texture'):
-            report += f"- **Texture:** {visual.get('texture')} - Characteristic of {disease}\n"
+        report += f"Based on visual analysis, I identified this as **{disease}** because:\n\n"
         if visual.get('border_type'):
-            report += f"- **Border Pattern:** {visual.get('border_type')}\n"
+            report += f"- **Border Pattern:** {visual.get('border_type')} — characteristic of {disease}\n"
+        if visual.get('scale_type'):
+            report += f"- **Scale Type:** {visual.get('scale_type')} — consistent with diagnosis\n"
+        if visual.get('texture'):
+            report += f"- **Texture:** {visual.get('texture')} — typical presentation\n"
         report += "\n"
 
     if distinguishing:
@@ -302,6 +385,13 @@ Hi **{user_name}**! I've analyzed your skin image and here's what I found:
 
     report += """---
 ### 💊 Evidence-Based Treatment Recommendations
+
+| Score | Meaning |
+|-------|---------|
+| 🟢 **8-10** | Clinical trial evidence (RCTs, meta-analyses) |
+| 🟡 **5-7** | Mechanistic studies with documented pathways |
+| 🔴 **1-4** | Traditional use or preliminary research |
+
 """
     if trust_validation and trust_validation.get('remedies'):
         report += f"I've checked our **Neuro-Symbolic Trust Engine** database and found **{len(trust_validation['remedies'])} scientifically validated remedies** for {disease}:\n\n"
@@ -311,8 +401,7 @@ Hi **{user_name}**! I've analyzed your skin image and here's what I found:
             confidence_text = "Strong Evidence" if remedy['score'] >= 8 else "Good Evidence" if remedy['score'] >= 6 else "Traditional Use"
 
             report += f"#### {i}. {remedy['name'].title()} {emoji}\n"
-            report += f"**Scientific Confidence Score:** {remedy['score']}/10 ({confidence_text})\n"
-            report += f"**Evidence Level:** {remedy['tier_label']}\n\n"
+            report += f"**Scientific Confidence Score:** {remedy['score']}/10 ({confidence_text}) | **Evidence Level:** {remedy['tier_label']}\n\n"
 
             if remedy['mechanism']:
                 report += f"**How it works:** {remedy['mechanism']}\n\n"
@@ -329,9 +418,11 @@ Hi **{user_name}**! I've analyzed your skin image and here's what I found:
             for warning in trust_validation['warnings']:
                 report += f"{warning}\n\n"
     else:
-        report += "*Trust Engine validation unavailable. Here are general recommendations:*\n\n"
+        report += f"Evidence-informed home remedies for **{disease}**:\n\n"
         for i, rec in enumerate(result.get('recommendations', []), 1):
             report += f"{i}. {rec}\n\n"
+        report += "\n---\n### 🔬 Trust Engine Validation\n"
+        report += "> 💡 *Trust Engine validation is being initialized. Remedies above are curated from clinical literature. For full drug-interaction checking and personalized scoring, ensure the Trust Engine module is active.*\n\n"
 
     allergies = user_profile.get('allergies', [])
     medications = user_profile.get('current_medications', [])
@@ -373,11 +464,11 @@ Hi **{user_name}**! I've analyzed your skin image and here's what I found:
     else:
         report += f"**Severity Level: {severity}** 🟢\n{urgency_note}\n"
         report += """**Recommended Actions:**
-1. 🌿 Start with the highest-rated remedy above
-2. ⏰ Use consistently for **1-2 weeks**
-3. 💧 Stay hydrated and maintain good hygiene
-4. 📊 Monitor progress
-5. ✅ Most cases resolve with proper care
+1. Start with the highest-rated remedy above
+2. Use consistently for **1-2 weeks**
+3. Stay hydrated and maintain good hygiene
+4. Monitor progress
+5. Most cases resolve with proper care
 """
 
     report += f"""---
@@ -394,27 +485,8 @@ The remedies above have been validated through our **Neuro-Symbolic Trust Engine
 - **Symbolic Knowledge Base** - Verified herb-condition evidence with PubMed citations
 - **Safety Verification** - Drug interaction and contraindication checking
 - **Personalization** - Filtered based on your health profile
-
-**Scientific Confidence Score (SCS) Scale:**
-| Score | Meaning |
-|-------|---------|
-| 🟢 **8-10** | Clinical trial evidence (RCTs, meta-analyses) |
-| 🟡 **5-7** | Mechanistic studies with documented pathways |
-| 🔴 **1-4** | Traditional use or preliminary research |
 """
 
-    report += """
----
-### ⚠️ Important Disclaimer
-This AI-powered analysis is for **educational purposes only** and does not replace professional medical advice.
-- ✅ Share this report with your healthcare provider
-- ✅ Seek immediate care for severe or worsening symptoms
-- ❌ Do not self-treat serious conditions
-- ❌ Do not ignore signs of infection (pus, fever, spreading redness)
-
----
-*Analysis powered by ServVia AI Healthcare Intelligence with Neuro-Symbolic Trust Engine*
-"""
 
     return report
 
@@ -551,3 +623,232 @@ def get_skin_analysis_history(request):
     except Exception as e:
         logger.error(f"History error: {e}")
         return Response({'success': False, 'error': 'Failed to retrieve history'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# SSE STREAMING — POST /api/skin/analyze/stream/
+# ═══════════════════════════════════════════════════════════════════════════
+
+def _sse(event: str, data) -> str:
+    """Format a single SSE event."""
+    payload = json.dumps(data, ensure_ascii=False)
+    return f"event: {event}\ndata: {payload}\n\n"
+
+
+def _prepare_skin_image(image_file):
+    """Save uploaded image to temp file, return (temp_path, image_data) or raise ValueError."""
+    image_data = image_file.read()
+    image = Image.open(io.BytesIO(image_data))
+    if image.mode != 'RGB':
+        image = image.convert('RGB')
+    with tempfile.NamedTemporaryFile(delete=False, suffix='.jpg') as tmp:
+        image.save(tmp.name)
+        return tmp.name, image_data
+
+
+@csrf_exempt
+def stream_skin_analysis_view(request):
+    """
+    SSE streaming endpoint for skin analysis.
+
+    POST /api/skin/analyze/stream/
+    Body: multipart/form-data with email_id + image
+
+    Events:
+        stage  — Pipeline progress
+        token  — Response words
+        done   — Final metadata
+        error  — Error
+    """
+    if request.method != "POST":
+        return StreamingHttpResponse(
+            _sse("error", {"message": "POST required"}),
+            content_type="text/event-stream",
+            status=405,
+        )
+
+    email = request.POST.get("email_id", "").strip()
+    image_file = request.FILES.get("image")
+    analysis_mode = request.POST.get("analysis_mode", "cloud").strip().lower()
+
+    if not email or not image_file:
+        return StreamingHttpResponse(
+            _sse("error", {"message": "Missing email_id or image file"}),
+            content_type="text/event-stream",
+            status=400,
+        )
+
+    event_q = queue.Queue()
+
+    def _pipeline_worker():
+        """Run image validation → Edge/Cloud analysis → Trust Engine in background thread."""
+        temp_path = None
+        try:
+            # ── Stage 1: Process image ──
+            event_q.put(("stage", {
+                "id": "processing",
+                "label": "Processing image...",
+                "icon": "fa-image",
+            }))
+
+            try:
+                temp_path, image_data = _prepare_skin_image(image_file)
+            except Exception as e:
+                event_q.put(("error", {"message": f"Invalid image: {e}"}))
+                return
+
+            # ── Stage 2: Validate skin image ──
+            event_q.put(("stage", {
+                "id": "validating",
+                "label": "Validating skin image...",
+                "icon": "fa-check-circle",
+            }))
+
+            validation = validate_skin_image(temp_path)
+            if not validation['is_skin_image']:
+                event_q.put(("error", {"message": validation['reason']}))
+                return
+
+            # ── Stage 3: Analysis (respects user-selected mode) ──
+            result = None
+            edge_raw = None
+
+            if analysis_mode == "edge":
+                # Edge-only mode: use local Ollama, NO cloud fallback
+                if is_ollama_available():
+                    event_q.put(("stage", {
+                        "id": "analysis",
+                        "label": "Analyzing with Edge AI (local, private)...",
+                        "icon": "fa-microchip",
+                    }))
+                    edge_raw = classify_skin_image(temp_path)
+                    if edge_raw is not None:
+                        result = edge_result_to_gemini_format(edge_raw)
+                        if result is not None:
+                            logger.info(f"[EDGE] Stream: {result['disease']} ({edge_raw['confidence']}%)")
+                    if result is None:
+                        event_q.put(("error", {
+                            "message": "Edge AI could not classify this image with sufficient confidence. "
+                                       "Try switching to Cloud mode for better accuracy."
+                        }))
+                        return
+                else:
+                    event_q.put(("error", {
+                        "message": "Edge AI (Ollama) is not running. Start Ollama first, or switch to Cloud mode."
+                    }))
+                    return
+            else:
+                # Cloud mode: use Gemini directly (no edge)
+                event_q.put(("stage", {
+                    "id": "analysis",
+                    "label": "Analyzing with Cloud AI...",
+                    "icon": "fa-cloud",
+                }))
+                result = detect_skin_disease_gemini(temp_path)
+
+            # Clean up temp file
+            if temp_path and os.path.exists(temp_path):
+                try:
+                    os.unlink(temp_path)
+                    temp_path = None
+                except OSError:
+                    pass
+
+            if not result.get('success'):
+                event_q.put(("error", {"message": result.get('error', 'Analysis failed')}))
+                return
+
+            disease = result.get('disease', 'Unknown')
+            confidence_score = result.get('confidence_score', 0.0)
+
+            # ── Stage 4: Trust Engine ──
+            user_profile = get_user_profile(email)
+            trust_validation = None
+            if TRUST_ENGINE_AVAILABLE and trust_engine:
+                event_q.put(("stage", {
+                    "id": "trust",
+                    "label": "Validating with Trust Engine...",
+                    "icon": "fa-shield-alt",
+                }))
+                trust_validation = validate_skin_recommendations(disease, user_profile)
+
+            # ── Build formatted report ──
+            formatted_summary = build_detailed_skin_analysis(result, trust_validation, user_profile)
+
+            # ── Save to DB ──
+            image_file.seek(0)
+            analysis = SkinAnalysis.objects.create(
+                email_id=email,
+                image=image_file,
+                diagnosis=disease,
+                confidence_score=confidence_score,
+                recommendations=formatted_summary,
+            )
+
+            # ── Stream formatted summary word-by-word ──
+            event_q.put(("stage", {
+                "id": "streaming",
+                "label": "",
+                "icon": "fa-pen",
+            }))
+            event_q.put(("stream_summary", formatted_summary))
+
+            # ── Done ──
+            event_q.put(("done", {
+                "analysis_id": analysis.id,
+                "diagnosis": disease,
+                "confidence": round(confidence_score * 100, 2),
+                "severity": result.get('severity', 'Unknown'),
+            }))
+
+        except Exception as e:
+            logger.error(f"Skin stream pipeline error: {e}", exc_info=True)
+            event_q.put(("error", {"message": f"Pipeline error: {type(e).__name__}"}))
+        finally:
+            if temp_path and os.path.exists(temp_path):
+                try:
+                    os.unlink(temp_path)
+                except OSError:
+                    pass
+            event_q.put(("end", None))
+
+    def _event_generator():
+        """SSE generator — reads from queue, yields events to client."""
+        thread = threading.Thread(target=_pipeline_worker, daemon=True)
+        thread.start()
+
+        while True:
+            try:
+                event_type, data = event_q.get(timeout=5)
+            except queue.Empty:
+                if thread.is_alive():
+                    yield _sse("heartbeat", {"ts": int(_time.time())})
+                    continue
+                else:
+                    yield _sse("error", {"message": "Pipeline ended unexpectedly"})
+                    break
+
+            if event_type == "end":
+                break
+            elif event_type == "stage":
+                yield _sse("stage", data)
+            elif event_type == "error":
+                yield _sse("error", data)
+                break
+            elif event_type == "stream_summary":
+                words = data.split(" ")
+                for i, word in enumerate(words):
+                    is_last = (i == len(words) - 1)
+                    text = word if is_last else word + " "
+                    yield _sse("token", {"text": text})
+                    at_punctuation = word.rstrip().endswith((".", "!", "?", ":"))
+                    _time.sleep(0.045 if at_punctuation else 0.020)
+            elif event_type == "done":
+                yield _sse("done", data)
+
+        thread.join(timeout=5)
+
+    resp = StreamingHttpResponse(_event_generator(), content_type="text/event-stream")
+    resp["Cache-Control"] = "no-cache"
+    resp["X-Accel-Buffering"] = "no"
+    return resp

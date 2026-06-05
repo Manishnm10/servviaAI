@@ -21,12 +21,12 @@ import json
 logger = logging.getLogger(__name__)
 
 try:
-    import google.generativeai as genai
+    from google import genai
     GEMINI_AVAILABLE = True
     logger.info("✅ ServVia AI available")
 except ImportError:
     GEMINI_AVAILABLE = False
-    logger.error("❌ Gemini not available.  Install: pip install google-generativeai")
+    logger.error("❌ Gemini not available.  Install: pip install google-genai")
 
 
 # ServVIA Supported Skin Conditions
@@ -577,7 +577,7 @@ def detect_skin_disease_gemini(image_path: str):
     if not GEMINI_AVAILABLE:
         return {
             'success': False,
-            'error': 'Gemini not available. Install: pip install google-generativeai'
+            'error': 'Gemini not available. Install: pip install google-genai'
         }
     
     try:
@@ -613,12 +613,12 @@ def detect_skin_disease_gemini(image_path: str):
             }
 
         
-        genai.configure(api_key=api_key)
-        
+        client = genai.Client(api_key=api_key)
+
         # ✅ NEW: Validate that this is actually a skin image
         logger.info("🔍 Validating uploaded image...")
         validation = validate_skin_image(image_path)
-        
+
         if not validation['is_skin_image']:
             logger.warning(f"⚠️ Invalid image type: {validation['reason']}")
             return {
@@ -626,11 +626,8 @@ def detect_skin_disease_gemini(image_path: str):
                 'error': validation['reason'],
                 'error_type': 'invalid_image_type'
             }
-        
+
         logger.info("✅ Image validation passed")
-        
-        # Use stable Gemini model
-        model = genai.GenerativeModel('models/gemini-2.0-flash')
         
         # Load image
         img = Image.open(image_path)
@@ -638,149 +635,60 @@ def detect_skin_disease_gemini(image_path: str):
         # Create conditions list
         conditions_list = "\n".join([f"{i+1}. {condition}" for i, condition in enumerate(SERVVIA_SKIN_CONDITIONS)])
         
-        # ULTRA-ENHANCED PROMPT - Emphasize Heat Rash characteristics
-        prompt = f"""You are an expert dermatologist AI.  Analyze this skin image with EXTREME precision for Heat Rash vs Hives differentiation.
+        prompt = f"""You are an expert dermatologist AI. Analyze this skin image with clinical precision.
 
 **STRICT REQUIREMENT:** Select ONLY from this exact list:
 
 {conditions_list}
 
-**🚨 CRITICAL: HEAT RASH vs HIVES - READ CAREFULLY 🚨**
-
-- Heat Rash: Extremely tiny (1mm), 100+ uniform dots, looks like fine sandpaper
-- Hives: Visible raised welts (5-20mm), 10-40 bumps, individual welts are distinguishable
-
-**CRITICAL:** Only diagnose Heat Rash if bumps are IMPOSSIBLY SMALL (like grains of sand) and IMPOSSIBLY NUMEROUS (100+). 
-If you can clearly see and distinguish individual raised bumps → Default to HIVES. 
-
-**OTHER CONDITIONS:**
-
 **CRITICAL VISUAL DIFFERENTIATION GUIDE:**
 
+**HEAT RASH vs HIVES — most commonly confused:**
+
+HEAT RASH (Miliaria) — diagnose ONLY if ALL of these are true:
+- Bumps are truly microscopic (< 1mm, like grains of sand or fine peach fuzz)
+- Individual bumps CANNOT be isolated or counted — it is a texture, not discrete lesions
+- Uniform sandpaper appearance with no variation between bumps
+- Located in hot/sweaty areas (neck folds, armpits, groin, back)
+- NO individual bump casts its own shadow
+
+HIVES (Urticaria) — diagnose if ANY of these are true:
+- You can identify and count individual raised bumps or welts (even if numerous)
+- Bumps are 2mm or larger
+- Bumps are raised enough to cast shadows or have a 3D appearance
+- Distribution is on limbs (arms, legs) — heat rash rarely appears on limbs
+- Bumps vary in size or shape even slightly
+
+**DEFAULT RULE: If you can distinguish individual bumps at all → HIVES, not Heat Rash.**
+
 **ATHLETE'S FOOT vs HIVES:**
-
-ATHLETE'S FOOT (Tinea Pedis) indicators:
-- Located on FEET, especially BETWEEN TOES or on SOLES
-- WHITE, SCALY, PEELING skin
-- CRACKED skin between toes
-- May see MACERATION (white, soggy skin)
-- CHRONIC appearance (not suddenly appearing)
-- Affects toe webs, soles, or sides of feet
-- Texture: DRY, SCALY, or WET and PEELING
-
-HIVES (Urticaria) indicators:
-- RAISED, RED WELTS (like mosquito bites)
-- Can appear ANYWHERE on body (not just feet)
-- SMOOTH surface (not scaly or peeling)
-- IRREGULAR shapes that can merge
-- ACUTE onset (appears and disappears quickly)
-- Very ITCHY
-- No peeling or scaling
-
-**KEY DECISION:**
-- If you see FEET with PEELING/SCALING between toes → ATHLETE'S FOOT
-- If you see RAISED SMOOTH WELTS anywhere → HIVES
+- ATHLETE'S FOOT: On FEET, between/under toes, white peeling/scaling skin, cracked skin
+- HIVES: Raised smooth welts anywhere on body, no peeling
 
 **RAZOR BUMPS vs ACNE:**
-
-RAZOR BUMPS (Pseudofolliculitis Barbae) indicators:
-- Located in SHAVED AREAS (beard line, neck, chin, jawline)
-- Often visible STUBBLE or short hair growth nearby
-- INGROWN HAIRS visible (hair curling back into skin)
-- LINEAR or GRID-LIKE pattern (following razor strokes)
-- Appears AFTER SHAVING (ask context if possible)
-- Common in people with CURLY/COARSE hair
-- Concentrated in BEARD AREA for men
-- May see DARK SPOTS (post-inflammatory hyperpigmentation)
-
-ACNE indicators:
-- Can appear ANYWHERE (face, chest, back, shoulders)
-- NO clear relationship to shaving
-- COMEDONES present (blackheads/whiteheads)
-- Various stages (papules, pustules, cysts)
-- NOT limited to beard line
-- Random distribution (not in lines)
-
-**KEY DECISION:**
-- If bumps are on NECK/JAWLINE/BEARD AREA with stubble → RAZOR BUMPS
-- If bumps are on forehead, cheeks, back, chest → ACNE
-- If in beard area but also on forehead/nose → Could be BOTH
+- RAZOR BUMPS: Shaved areas (neck/jawline/beard), ingrown hairs, linear pattern
+- ACNE: Any area, comedones (blackheads/whiteheads) present, no shaving pattern
 
 **FOLLICULITIS vs HIVES vs ACNE:**
-
-FOLLICULITIS indicators:
-- Bumps CENTERED around HAIR FOLLICLES (each bump has a hair)
-- Located in HAIR-BEARING AREAS (scalp, beard, chest, back, arms, legs)
-- PUSTULES (pus-filled) at follicle openings
-- Uniform size (2-5mm)
-- May see CRUST or drainage
-- Pattern follows HAIR DISTRIBUTION
-- Often in areas of friction, shaving, or sweating
-- SCALP FOLLICULITIS: bumps on scalp/hairline with visible hair
-
-HIVES (Urticaria) indicators:
-- RAISED SMOOTH WELTS (not centered on follicles)
-- Can appear on HAIRLESS areas (palms, face, etc.)
-- NO relationship to hair follicles
-- VARY in size (can merge into large patches)
-- SMOOTH surface (no pustules or crusting)
-- Appear and disappear QUICKLY (hours to days)
-
-ACNE indicators:
-- Primarily on FACE, CHEST, UPPER BACK
-- COMEDONES present (blackheads/whiteheads)
-- Various lesion types (papules, pustules, nodules, cysts)
-- NOT every lesion has a hair
-- Deeper inflammation than folliculitis
-
-**KEY DECISION:**
-- If bumps on SCALP with HAIR visible → SCALP FOLLICULITIS
-- If bumps CENTERED on hair follicles anywhere → FOLLICULITIS
-- If smooth raised welts without hair involvement → HIVES
-- If comedones + face/chest/back → ACNE
+- FOLLICULITIS: Each bump centered on a hair follicle, pustules, hair-bearing areas
+- HIVES: Smooth welts not centered on follicles, no pustules
+- ACNE: Face/chest/back, comedones present, various lesion stages
 
 **MOSQUITO BITES vs HIVES:**
-
-MOSQUITO BITES indicators:
-- FEW scattered bumps (typically 3-10, not hundreds)
-- Located on EXPOSED SKIN (arms, legs, ankles, face, neck)
-- INDIVIDUAL distinct bumps (don't merge)
-- May have CENTRAL PUNCTUM (tiny dot/mark in center)
-- RANDOM scattered pattern (where mosquito landed)
-- Different AGES of bumps (some fresh, some healing)
-- Often on ANKLES/LOWER LEGS (mosquito height)
-- ASYMMETRIC distribution (one arm more than other)
-
-HIVES (Urticaria) indicators:
-- MANY welts (can be dozens to hundreds)
-- Can appear on COVERED areas (not just exposed)
-- Tend to MERGE and form larger patches
-- NO central punctum
-- SYMMETRIC distribution
-- All appear at SAME TIME (acute allergic reaction)
-- Come and go within HOURS
-- Often accompanied by other allergy symptoms
-
-**KEY DECISION:**
-- If 3-10 scattered bumps on EXPOSED skin (arms/legs) → MOSQUITO BITES
-- If many welts, merging, all over body → HIVES
-- If only ankles/lower legs affected → Likely MOSQUITO BITES
-- If symmetric and widespread → Likely HIVES
+- MOSQUITO BITES: 3-10 isolated bumps, exposed skin only, possible central punctum
+- HIVES: Many welts, can be on covered skin, appear simultaneously, may merge
 
 **ECZEMA vs PSORIASIS:**
-- ECZEMA: Wet/oozing or very dry, DIFFUSE borders, thin scales
-- PSORIASIS: Thick plaques, SILVERY scales, SHARP borders
+- ECZEMA: Diffuse borders, thin/fine scales or weeping, flexural areas
+- PSORIASIS: Thick silvery plaques, SHARP borders, extensor surfaces
 
-**CONTACT DERMATITIS:**
-- SHARP GEOMETRIC boundaries matching contact point
-- Often on hands, wrists, face, neck
+**CONTACT DERMATITIS:** Sharp geometric boundary matching a contact point
 
-**ANALYSIS PROTOCOL - FOLLOW IN ORDER:**
-1. COUNT lesions carefully
-2. MEASURE apparent size
-3. CHECK uniformity
-4. ASSESS how raised they are
-5. Then make diagnosis
+**ANALYSIS PROTOCOL:**
+1. Identify body part
+2. Can you count individual bumps? Yes → likely HIVES or similar. No → could be Heat Rash
+3. Assess lesion size, border sharpness, scale type
+4. Make diagnosis
 
 Provide response in EXACT JSON format:
 
@@ -792,39 +700,42 @@ Provide response in EXACT JSON format:
   "description": "detailed medical description",
   "affected_area": "specific body part",
   "differential_diagnosis": ["Alternative 1", "Alternative 2"],
-  "distinguishing_features": "What makes this condition",
+  "distinguishing_features": "What makes this condition and not the closest alternative",
   "border_type": "sharp/defined OR diffuse/poorly-defined",
   "scale_type": "thick/silvery OR thin/fine OR none",
   "texture": "flat OR barely raised OR prominently raised",
-  "lesion_size_description": "Be SPECIFIC: pinpoint/tiny (1-2mm) OR small (3-5mm) OR large welts (5mm+)",
-  "lesion_count_estimate": "IMPORTANT: MANY (30+) OR MODERATE (10-30) OR FEW (5-10)",
-  "pattern_note": "uniform/densely packed OR variable/scattered",
-  "reasoning": "Step-by-step: 1) Counted X lesions 2) Size appears Y mm 3) Uniformity is Z 4) Therefore [condition]"
+  "lesion_size_description": "pinpoint (<1mm) OR small (1-4mm) OR medium (5-10mm) OR large welt (>10mm)",
+  "lesion_count_estimate": "FEW (1-10) OR MODERATE (10-30) OR MANY (30+) OR INNUMERABLE",
+  "pattern_note": "discrete/countable OR dense texture/cannot count individual lesions",
+  "reasoning": "Step-by-step: 1) Body part 2) Can individual bumps be counted? 3) Size 4) Therefore [condition]"
 }}
 
 **CONFIDENCE SCORING:**
 - 90-100%: Multiple distinctive features clearly visible
 - 75-89%: Primary features match
-- 60-74%: Features match but some ambiguity
+- 60-74%: Some ambiguity
 - <60%: Consider "Normal Skin"
 
+Analyze this image now:"""
 
-**FINAL INSTRUCTION:** 
-When choosing between Heat Rash and Hives:
-- Can you see and count individual bumps? → HIVES
-- Does it look like uniform fine sandpaper texture with 100+ tiny dots? → HEAT RASH
-- Default to HIVES unless CERTAIN it's Heat Rash
+        logger.info(f"🔬 Stage 1: Analyzing skin image...")
 
-
-Analyze this image now - PAY SPECIAL ATTENTION TO LESION COUNT AND SIZE:"""
-
-        logger.info(f"🔬 Stage 1: Analyzing with ServVia AI (AGGRESSIVE Heat Rash detection)...")
-        
-        # Generate response
-        response = model.generate_content([prompt, img])
-        response_text = response.text. strip()
-        
-        logger.info(f"📝 ServVia AI response received")
+        # Generate response — fall back to 2.5-flash if 3-flash-preview is overloaded
+        _models_to_try = ['gemini-3-flash-preview', 'gemini-2.5-flash', 'gemini-3.1-flash-lite-preview']
+        response = None
+        for _model in _models_to_try:
+            try:
+                response = client.models.generate_content(model=_model, contents=[prompt, img])
+                logger.info(f"📝 ServVia AI responded via {_model}")
+                break
+            except Exception as _e:
+                if '503' in str(_e) or 'UNAVAILABLE' in str(_e):
+                    logger.warning(f"⚠️ {_model} unavailable, trying next model...")
+                    continue
+                raise
+        if response is None:
+            raise RuntimeError("All Gemini models unavailable")
+        response_text = response.text.strip()
         
         # Parse JSON
         try:
@@ -982,14 +893,17 @@ def detect_skin_disease_multi(image_path: str, method: str = 'gemini'):
 
 class SkinDiseaseDetector:
     """Django-compatible wrapper"""
-    
+
     def __init__(self):
         if not GEMINI_AVAILABLE:
-            raise ImportError("google-generativeai not installed.  Run: pip install google-generativeai")
-        logger.info("✅ SkinDiseaseDetector initialized with ServVia AI")
-    
+            logger.warning("⚠️ SkinDiseaseDetector: google-genai not available. Install: pip install google-genai")
+        else:
+            logger.info("✅ SkinDiseaseDetector initialized with ServVia AI")
+
     def predict(self, image_file):
         """Predict from Django uploaded file"""
+        if not GEMINI_AVAILABLE:
+            raise ImportError("google-genai not installed. Run: pip install google-genai")
         try:
             import tempfile
             import io
