@@ -99,9 +99,16 @@ async def synthesize_speech(
         logger.info("Text truncated to 4000 characters for TTS")
     
     logger.info(f"🔊 TTS request: {len(cleaned_text)} chars, language: {input_language}")
-    
-    # Try OpenAI TTS first (much better quality and natural sounding)
-    if openai_client:
+
+    # Language-aware engine order:
+    #   • Non-English  → Google TTS first (proper regional voices: kn-IN, hi-IN, …)
+    #   • English      → OpenAI TTS first (most natural English voice)
+    _lang_short = (input_language or "en").split("-")[0].lower()
+    prefer_google = _lang_short not in ("en", "english", "")
+
+    async def _try_openai():
+        if not openai_client:
+            return None
         try:
             result = await synthesize_with_openai(cleaned_text, input_language, id_string)
             if result:
@@ -109,23 +116,29 @@ async def synthesize_speech(
                 return result
         except Exception as e:
             logger.error(f"OpenAI TTS failed: {e}")
-    
-    # Fallback to Google TTS
-    if google_credentials:
-        try: 
+        return None
+
+    async def _try_google():
+        if not google_credentials:
+            return None
+        try:
             result = await synthesize_with_google(
-                cleaned_text,
-                input_language,
-                id_string,
-                audio_encoding_format,
-                sample_rate_hertz
+                cleaned_text, input_language, id_string,
+                audio_encoding_format, sample_rate_hertz,
             )
             if result:
                 logger.info(f"✅ Google TTS success: {result}")
                 return result
         except Exception as e:
             logger.error(f"Google TTS failed: {e}")
-    
+        return None
+
+    order = (_try_google, _try_openai) if prefer_google else (_try_openai, _try_google)
+    for engine in order:
+        result = await engine()
+        if result:
+            return result
+
     logger.error("❌ All TTS methods failed")
     return None
 

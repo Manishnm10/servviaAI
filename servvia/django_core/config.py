@@ -64,6 +64,16 @@ class Config:
     MODEL_BRAIN = ENV_CONFIG.get("MODEL_BRAIN", "gpt-4.1-mini")
     MODEL_CHAT = ENV_CONFIG.get("MODEL_CHAT", "gpt-4.1-mini")
 
+    # Speech-to-Text fallback (OpenAI Whisper). Primary STT is Gemini (see
+    # voice_asr.py); Whisper is the fallback. Read the direct OpenAI key under
+    # either common name.
+    OPENAI_WHISPER_KEY = (
+        ENV_CONFIG.get("OPENAI_API_KEY")
+        or ENV_CONFIG.get("OPEN_AI_KEY")
+        or os.environ.get("OPENAI_API_KEY")
+        or os.environ.get("OPEN_AI_KEY")
+    )
+
     # Reasoning models that don't support temperature parameter
     # These models use reasoning_effort instead
     REASONING_MODELS = {"o3-mini", "o3", "o4-mini"}
@@ -106,3 +116,12 @@ class Config:
 
     # Translation
     GOOGLE_APPLICATION_CREDENTIALS = ENV_CONFIG.get("GOOGLE_APPLICATION_CREDENTIALS")
+
+    # Google Cloud Speech-to-Text v2 (chirp_2 — hint-free auto language detection)
+    #   GOOGLE_CLOUD_PROJECT: GCP project id (defaults to the service-account file's
+    #     project_id if left unset — resolved lazily in voice_asr.py).
+    #   GOOGLE_SPEECH_LOCATION: a region where chirp_2 + auto LID is enabled.
+    #     us-central1 is the most broadly available; asia-southeast1 is closer to
+    #     India if enabled for your project.
+    GOOGLE_CLOUD_PROJECT = ENV_CONFIG.get("GOOGLE_CLOUD_PROJECT")
+    GOOGLE_SPEECH_LOCATION = ENV_CONFIG.get("GOOGLE_SPEECH_LOCATION", "us-central1")

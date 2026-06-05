@@ -832,6 +832,7 @@ async def _run_pipeline(
                 _parts.append(f"CURRENT QUERY: {query_in_english}")
                 _enriched_symptoms = "\n".join(_parts)
 
+            from api.language_support import build_language_directive
             prompt = PROPOSER_PROMPT.format(
                 user_name=user_name or "",
                 user_allergies=", ".join(str(a) for a in allergies) if allergies else "None declared",
@@ -842,11 +843,12 @@ async def _run_pipeline(
                 bio_context=bio_context_str,
                 critic_feedback="",
                 diagnosis_context="No diagnosis needed for minor ailments. Use PATH A.",
+                language_directive=build_language_directive(input_language_detected),
             )
 
             _trace("  [C-2] MINOR — single LLM call...")
             response, exception, retries = await make_openai_request(
-                prompt, model=Config.MODEL_CHAT, temperature=0.3, max_retries=2, max_tokens=1500,
+                prompt, model=Config.MODEL_CHAT, temperature=0.3, max_retries=2,
             )
             if response and response.choices:
                 content = response.choices[0].message.content
@@ -887,6 +889,7 @@ async def _run_pipeline(
                 user_conditions=_profile.get("medical_conditions") or [],
                 diagnosis_output=diag_result.get("diagnosis_output", ""),
                 primary_condition=diag_result.get("primary_condition", ""),
+                target_language=input_language_detected,
             )
             if verified_response and verified_response != _AGENT_FALLBACK:
                 llm_response = verified_response
@@ -946,27 +949,18 @@ async def _run_pipeline(
             logger.error(f"Trust Engine error: {e}", exc_info=True)
             _trace(f"  [D-1] Trust Engine error: {e}")
 
-    # ── Step 4: Back-translation ─────────────────────────────────────────
+    # ── Step 4: Language handling ────────────────────────────────────────
+    # The reply is GENERATED directly in the user's language by the Proposer
+    # (see build_language_directive), so we do NOT Google-translate it here.
+    # This is what preserves the word-by-word SSE streaming for non-English
+    # replies — there is no full-text translation barrier. Indian-language
+    # scripts are space-delimited, so the typing animation works unchanged.
     follow_up_questions = []
     if is_english:
-        _trace("  [E] Skipping back-translation (English input)")
-        translated_response = llm_response
+        _trace("  [E] English — no language post-processing")
     else:
-        _trace("  [E] Translating response back...")
-        try:
-            (
-                translated_response,
-                _clean_response,
-                follow_up_questions,
-                _,
-            ) = await postprocess_and_translate_query_response(
-                llm_response,
-                input_language_detected,
-                str(message_id),
-            )
-        except Exception as e:
-            _trace(f"  [E] Translation error: {e}")
-            translated_response = llm_response
+        _trace(f"  [E] Reply generated in-language ({input_language_detected}) — skipping back-translation")
+    translated_response = llm_response
 
     return {
         "response": translated_response,
@@ -1269,6 +1263,51 @@ class ServViaChatViewSet(GenericViewSet):
         from legacy_healthcare.api.views import ChatAPIViewSet
         legacy = ChatAPIViewSet()
         return legacy.synthesise_audio(request)
+
+    @action(detail=False, methods=["post"])
+    def transcribe(self, request):
+        """
+        Voice → text with automatic language detection (Whisper).
+
+        POST /api/chat/transcribe/   (multipart/form-data)
+        Form: { "audio": <file>, "email_id": "..." (optional) }
+
+        Returns: { "transcript": str, "language": iso_code, "engine": str }
+
+        The transcript comes back in the language's native script, so sending it
+        straight to the chat endpoint lets the pipeline auto-detect the language
+        and reply in the same language — no language selector needed.
+        """
+        from api.voice_asr import transcribe_audio_clip
+
+        audio_file = request.FILES.get("audio")
+        if not audio_file:
+            return Response(
+                {"error": "No audio file provided (field 'audio')."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            content = audio_file.read()
+            filename = getattr(audio_file, "name", "") or "audio.webm"
+            result = transcribe_audio_clip(content, filename=filename)
+            if not result.get("transcript"):
+                return Response(
+                    {
+                        "transcript": "",
+                        "language": "",
+                        "engine": result.get("engine", "none"),
+                        "message": "Could not transcribe audio.",
+                    },
+                    status=status.HTTP_200_OK,
+                )
+            return Response(result, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.error(f"Transcribe endpoint error: {e}", exc_info=True)
+            return Response(
+                {"error": "Transcription failed.", "transcript": "", "language": ""},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
     @action(detail=False, methods=["post"])
     def transcribe_audio(self, request):
