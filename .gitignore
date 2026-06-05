@@ -38,3 +38,15 @@ servvia/New Text Document.txt
 
 # Claude config
 .claude/
+
+node_modules/
+.next/
+.env
+*.env
+dist/
+build/
+
+# Testing inputs & outputs (eval artifacts, sample images/reports)
+testing/
+servvia/skin_analysis/test/
+*lint-results.txt

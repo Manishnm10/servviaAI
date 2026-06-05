@@ -2,11 +2,13 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+**ServVia — Neuro-Symbolic Agentic AI Healthcare Platform**
+
 ## Repository Structure
 
 Two Django servers, one monorepo:
 
-- **`servvia/`** — AI Healthcare Core (Port 9000, Django 4.2.4, SQLite)
+- **`servvia/`** — ServVia Neuro-Symbolic Agentic AI Healthcare Core (Port 9000, Django 4.2.4, SQLite)
 - **`servvia-backend/`** — Data Platform (Port 9001, Django 4.1.5, PostgreSQL)
 - **`servvia-frontend/`** — Next.js frontend (Port 3000, not the primary UI)
 
@@ -69,6 +71,9 @@ Follow-up detection (`_is_conversational_followup()`) skips Trust Engine and Saf
 | `servvia/core_temporal/conversation/manager.py` | Session-scoped conversation history (Django cache, 2hr TTL) |
 | `servvia/core_temporal/trust_engine/engine.py` | Evidence grading (GRADE standards) + PubMed citations |
 | `servvia/legacy_healthcare/rag_service/execute_rag.py` | RAG pipeline: context extraction → query rephrasing → retrieval |
+| `servvia/api/voice_asr.py` | Voice speech-to-text: Gemini primary + Whisper fallback, language auto-detect |
+| `servvia/api/language_support.py` | Single source of truth for language metadata (STT/TTS BCP-47 + generate-in-language directive) |
+| `servvia/api/medical_asr_prompt.py` | Medical priming prompt biasing ASR toward correct symptom terms and Indian-language script |
 | `servvia/templates/index.html` | Primary frontend (Django-served SPA) |
 | `servvia/django_core/settings.py` | Server 1 Django settings |
 | `servvia/django_core/config.py` | Environment variable loading |
@@ -110,6 +115,32 @@ All three features (chat, skin, lab report) use Server-Sent Events:
 - **Vision**: Google Gemini API (skin analysis cloud mode)
 - **Edge**: Ollama with local models (skin analysis edge mode)
 - **Key deps**: `langgraph 1.0.10`, `openai 2.24.0`, `google-genai 1.65.0`, `pdfplumber`, `easyocr`, `presidio-analyzer`, `spacy` + `en_core_web_lg`, `neo4j 5.14.0`, `pydantic 2.9.2`. numpy pinned to 1.26.4 (PyTorch compat).
+
+## Multilingual Voice (Speech-to-Text)
+
+Voice queries are transcribed via `POST /api/chat/transcribe/` (multipart `audio` clip) → `api/voice_asr.py`:
+
+- **Auto-detect, no selector**: language is detected from the audio, never hinted by the UI.
+- **Engine priority**: Google Gemini (`gemini-2.5-flash-lite`, primary — most robust for native script of kn/hi/ta/te; accepts WAV/mp3/ogg/flac) → OpenAI Whisper (fallback; accepts webm/wav directly).
+- **Medical priming**: both engines are seeded with `medical_asr_prompt.py` — symptom phrases in romanized + native script that bias the model toward correct terminology and the correct Indian language (e.g. stops Kannada being mis-detected as Hindi).
+- **Generate-in-language**: the transcript is returned in its native script, so the chat pipeline detects the language and the LLM replies in that same language (`build_language_directive` in `language_support.py`). No translation round-trip.
+
+## Dual Frontend Rule
+
+**When making any UI-facing change, always update BOTH frontends:**
+- `servvia/templates/index.html` — Django-served SPA (primary, production)
+- `servvia-frontend/src/app/page.tsx` — Next.js frontend (port 3000)
+
+Both must stay in sync. The Next.js frontend proxies API calls through `/api/proxy/[...path]/route.ts` → `localhost:9000`.
+
+### API Endpoint URLs (Next.js proxy paths)
+- Chat stream: `/api/proxy/chat/stream/` (body: `{email_id, query, session_id}`)
+- Chat fallback: `/api/proxy/chat/get_answer_for_text_query/` (body: `{email_id, query}`)
+- Voice transcribe: `/api/proxy/chat/transcribe/` (FormData: `audio` clip → `{text, language}`)
+- Skin analysis: `/api/proxy/skin/analyze/stream/` (FormData: `email_id, session_id, image, analysis_mode`)
+- Lab report: `/api/proxy/lab-report/analyze/stream/` (FormData: `email_id, session_id, report[]`)
+- Profile check: `/api/proxy/profile/profile/check_profile/` (body: `{email_id}`)
+- Profile save: `/api/proxy/profile/profile/create_or_update_profile/` (body: `{email_id, first_name, allergies, medical_conditions, current_medications}`)
 
 ## Environment
 
