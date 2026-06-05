@@ -536,12 +536,11 @@
     }
 
     .message-content h4 {
-      color: var(--text-muted);
-      margin: 0.75rem 0 0.25rem;
-      font-size: 0.85rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.5px
+      color: #ffffff;
+      margin: 1rem 0 0.4rem;
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: 0.2px
     }
 
     .message-content em {
@@ -1706,24 +1705,67 @@
       }
     }
 
-    /* ═══ Voice Input ═══ */
+    /* ═══ Voice Input — backend Whisper, auto-detects ANY language ═══
+       Records audio and sends it to /api/chat/transcribe/. Whisper auto-detects
+       the spoken language (Kannada, Hindi, English, …) and returns the transcript
+       in its native script. We drop it into the input and send — the pipeline
+       then auto-detects the language and replies in that same language.
+       No language selector, no hardcoded 'en-US' recognizer. */
+    let audioChunks = [];
+    // Convert a recorded audio Blob (webm/opus on Chrome) to 16-bit PCM WAV mono,
+    // which the backend Gemini STT accepts (it does not take webm). Uses the Web
+    // Audio API only — no libraries.
+    async function blobToWav(blob) {
+      const arrayBuffer = await blob.arrayBuffer();
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      const ctx = new AudioCtx();
+      const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+      const len = audioBuffer.length, rate = audioBuffer.sampleRate, ch = audioBuffer.numberOfChannels;
+      const mono = new Float32Array(len);
+      for (let c = 0; c < ch; c++) { const d = audioBuffer.getChannelData(c); for (let i = 0; i < len; i++) mono[i] += d[i] / ch; }
+      ctx.close();
+      const buf = new ArrayBuffer(44 + len * 2), view = new DataView(buf);
+      const ws = (o, s) => { for (let i = 0; i < s.length; i++) view.setUint8(o + i, s.charCodeAt(i)); };
+      ws(0, 'RIFF'); view.setUint32(4, 36 + len * 2, true); ws(8, 'WAVE'); ws(12, 'fmt ');
+      view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true);
+      view.setUint32(24, rate, true); view.setUint32(28, rate * 2, true); view.setUint16(32, 2, true); view.setUint16(34, 16, true);
+      ws(36, 'data'); view.setUint32(40, len * 2, true);
+      let off = 44; for (let i = 0; i < len; i++) { let s = Math.max(-1, Math.min(1, mono[i])); view.setInt16(off, s < 0 ? s * 0x8000 : s * 0x7FFF, true); off += 2; }
+      return new Blob([view], { type: 'audio/wav' });
+    }
     async function toggleVoiceInput() {
       const mb = document.querySelector('.mic-btn'), mi = mb.querySelector('i'), ui = document.getElementById('userInput'), pb = document.querySelector('.plus-btn');
-      let ft = '';
+      const resetMic = () => { mi.className = 'fas fa-microphone'; mb.classList.remove('recording'); mb.style.background = ''; mb.title = 'Voice Input'; ui.placeholder = 'Ask about symptoms, remedies...'; if (pb) pb.disabled = false; };
       if (!isRecording) {
         try {
           micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-          isRecording = true; mb.classList.add('recording'); mb.style.background = '#ff4444'; mi.classList.remove('fa-microphone'); mi.classList.add('fa-stop'); mb.title = 'Stop'; ui.placeholder = 'Listening...'; if (pb) pb.disabled = true;
-          if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-            const SR = window.SpeechRecognition || window.webkitSpeechRecognition; recognition = new SR(); recognition.continuous = true; recognition.interimResults = true; recognition.lang = 'en-US';
-            recognition.onresult = (e) => { let it = '', cf = ''; for (let i = e.resultIndex; i < e.results.length; i++) { if (e.results[i].isFinal) cf += e.results[i][0].transcript; else it += e.results[i][0].transcript } ft += cf; if (ui) ui.value = ft + it };
-            recognition.start();
-          }
-          mediaRecorder = new MediaRecorder(micStream);
-          mediaRecorder.onstop = () => { if (recognition) recognition.stop(); if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null } isRecording = false; mb.classList.remove('recording'); mb.style.background = ''; mi.classList.remove('fa-stop'); mi.classList.add('fa-microphone'); mb.title = 'Voice Input'; ui.placeholder = 'Ask about symptoms, remedies...'; if (pb) pb.disabled = false; if (ft.trim().length > 0) sendMessage() };
+          audioChunks = [];
+          const mime = (window.MediaRecorder && MediaRecorder.isTypeSupported('audio/webm')) ? 'audio/webm' : '';
+          mediaRecorder = mime ? new MediaRecorder(micStream, { mimeType: mime }) : new MediaRecorder(micStream);
+          isRecording = true; mb.classList.add('recording'); mb.style.background = '#ff4444'; mi.className = 'fas fa-stop'; mb.title = 'Stop'; ui.placeholder = 'Listening… speak in any language'; if (pb) pb.disabled = true;
+          mediaRecorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) audioChunks.push(e.data); };
+          mediaRecorder.onstop = async () => {
+            if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
+            isRecording = false; mb.classList.remove('recording'); mb.style.background = '';
+            const mt = (mediaRecorder && mediaRecorder.mimeType) || 'audio/webm';
+            const blob = new Blob(audioChunks, { type: mt });
+            if (!blob.size) { resetMic(); return; }
+            mi.className = 'fas fa-spinner fa-spin'; ui.placeholder = 'Transcribing…';
+            try {
+              const ext = mt.includes('mp4') ? 'mp4' : (mt.includes('ogg') ? 'ogg' : 'webm');
+              const fd = new FormData();
+              fd.append('audio', blob, 'voice.' + ext);
+              fd.append('email_id', userEmail || '');
+              const r = await fetch(`${baseUrl}/api/chat/transcribe/`, { method: 'POST', body: fd });
+              const d = await r.json();
+              resetMic();
+              if (d && d.transcript && d.transcript.trim()) { ui.value = d.transcript.trim(); sendMessage(); }
+              else { ui.placeholder = "Couldn't hear that clearly — please try again or type."; }
+            } catch (err) { console.error(err); resetMic(); ui.placeholder = 'Voice error — please type your message.'; }
+          };
           mediaRecorder.start();
-        } catch (e) { console.error(e); alert('Could not access microphone.') }
-      } else { if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop() }
+        } catch (e) { console.error(e); alert('Could not access microphone.'); isRecording = false; resetMic(); }
+      } else { if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop(); }
     }
 
     /* ═══ TTS ═══ */
@@ -1797,32 +1839,39 @@
       const stageDiv = document.createElement("div");
       stageDiv.className = "stream-stage";
       stageDiv.innerHTML = '<i class="fas fa-image fa-spin stream-stage-icon"></i><span class="stream-stage-label">Preparing analysis...</span><div class="stream-stage-dots"><span></span><span></span><span></span></div>';
-      const textDiv = document.createElement("div");
-      textDiv.className = "streaming-text typing";
-      textDiv.style.display = "none";
+      // Two-div incremental render: frozenDiv holds completed sections (parsed once),
+      // activeDiv streams the current in-progress section to avoid re-parsing the full report.
+      const frozenDiv = document.createElement("div");
+      const activeDiv = document.createElement("div");
+      activeDiv.className = "streaming-text typing";
+      activeDiv.style.display = "none";
       contentDiv.appendChild(trailDiv);
       contentDiv.appendChild(stageDiv);
-      contentDiv.appendChild(textDiv);
+      contentDiv.appendChild(frozenDiv);
+      contentDiv.appendChild(activeDiv);
       botMsg.appendChild(contentDiv);
       cs.appendChild(botMsg);
       scrollChatToBottom();
 
-      let accumulatedText = "";
-      let renderedText = "";
+      let activeText = "";
+      let fullText = "";
       let completedStages = [];
       let streamingStarted = false;
       let streamDone = false;
 
-      const RENDER_INTERVAL = 70;
       const renderLoop = setInterval(() => {
-        if (accumulatedText !== renderedText) {
-          renderedText = accumulatedText;
-          textDiv.innerHTML = marked.parse(renderedText);
-          textDiv.classList.add("typing");
-          botMsg.scrollIntoView({ behavior: "smooth", block: "end" });
+        if (!streamingStarted) { if (streamDone) clearInterval(renderLoop); return; }
+        // Freeze completed sections at double-newline boundaries (parse once, never again)
+        const splitAt = activeText.lastIndexOf("\n\n");
+        if (splitAt >= 0) {
+          frozenDiv.innerHTML += marked.parse(activeText.slice(0, splitAt + 2));
+          activeText = activeText.slice(splitAt + 2);
         }
+        // Show in-progress section as plain text — no markdown parse mid-stream
+        activeDiv.textContent = activeText;
+        cs.scrollTop = cs.scrollHeight;
         if (streamDone) clearInterval(renderLoop);
-      }, RENDER_INTERVAL);
+      }, 70);
 
       try {
         const response = await fetch(`${baseUrl}/api/skin/analyze/stream/`, {
@@ -1866,11 +1915,12 @@
                     streamingStarted = true;
                     stageDiv.style.display = "none";
                     trailDiv.style.display = "none";
-                    textDiv.style.display = "block";
+                    activeDiv.style.display = "block";
                   }
-                  accumulatedText += data.text;
+                  activeText += data.text;
+                  fullText += data.text;
                 } else if (currentEvent === "error") {
-                  accumulatedText = data.message || "Analysis failed. Please try again.";
+                  fullText = data.message || "Analysis failed. Please try again.";
                   stageDiv.innerHTML = `<i class="fas fa-exclamation-triangle" style="color:#ef4444"></i><span class="stream-stage-label" style="color:#ef4444">${data.message}</span>`;
                 }
               } catch (parseErr) {
@@ -1882,13 +1932,13 @@
 
         streamDone = true;
         clearInterval(renderLoop);
-        if (accumulatedText !== renderedText) {
-          textDiv.innerHTML = marked.parse(accumulatedText);
-        }
-        textDiv.classList.remove("typing");
+        // Final flush — freeze remaining active text with full markdown
+        if (activeText.trim()) frozenDiv.innerHTML += marked.parse(activeText);
+        activeDiv.remove();
+        activeDiv.classList.remove("typing");
         botMsg.remove();
-        if (accumulatedText) {
-          addToChatWindow("bot", accumulatedText);
+        if (fullText) {
+          addToChatWindow("bot", fullText);
         } else {
           addToChatWindow("bot", "Could not analyze the skin image. Please try again.");
         }
