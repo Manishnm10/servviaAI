@@ -33,20 +33,14 @@ class LabReportAnalyzer:
     - Provide a markdown-formatted summary ready for UI display
     """
 
-    DEFAULT_MODEL = "gemini-2.0-flash"  # Use stable model ID for production
+    DEFAULT_MODEL = "gemini-3-flash-preview"
+    FALLBACK_MODELS = ["gemini-2.5-flash", "gemini-3.1-flash-lite-preview"]
 
     def __init__(
         self,
         model_name: Optional[str] = None,
         request_timeout: int = 90,
     ) -> None:
-        """
-        Initialize Gemini API client and model.
-
-        Args:
-            model_name: Optional override for Gemini model name.
-            request_timeout: Timeout (seconds) for Gemini requests.
-        """
         api_key = (
             ENV_CONFIG.get("GOOGLE_API_KEY")
             or ENV_CONFIG.get("GEMINI_API_KEY")
@@ -71,6 +65,32 @@ class LabReportAnalyzer:
             "✅ LabReportAnalyzer initialized (model=%s, timeout=%ss)",
             self.model_name,
             self.request_timeout,
+        )
+
+    def _generate_with_fallback(self, contents) -> str:
+        """Call Gemini with automatic model fallback on 503/unavailable errors."""
+        models_to_try = [self.model_name] + [
+            m for m in self.FALLBACK_MODELS if m != self.model_name
+        ]
+        last_error = None
+        for model_id in models_to_try:
+            try:
+                model = genai.GenerativeModel(model_id)
+                response = model.generate_content(
+                    contents,
+                    request_options={"timeout": self.request_timeout},
+                )
+                if model_id != self.model_name:
+                    logger.info("📝 LabReportAnalyzer using fallback model: %s", model_id)
+                return (response.text or "").strip()
+            except Exception as e:
+                if "503" in str(e) or "UNAVAILABLE" in str(e):
+                    logger.warning("⚠️ %s unavailable, trying next model...", model_id)
+                    last_error = e
+                    continue
+                raise
+        raise RuntimeError(
+            f"All Gemini models unavailable. Last error: {last_error}"
         )
 
     # -------------------------------------------------------------------------
@@ -121,12 +141,7 @@ class LabReportAnalyzer:
                 )
 
                 logger.info("📄 Attempting image-based text extraction via Gemini Vision...")
-                response = self.model.generate_content(
-                    [prompt, image],
-                    request_options={"timeout": self.request_timeout},
-                )
-
-                extracted_text = (response.text or "").strip()
+                extracted_text = self._generate_with_fallback([prompt, image])
                 logger.info(
                     "✅ Extracted %d characters from lab report image",
                     len(extracted_text),
@@ -155,13 +170,7 @@ class LabReportAnalyzer:
                 try:
                     logger.info("📄 Uploading PDF to Gemini for text extraction...")
                     uploaded_file = genai.upload_file(path=tmp_path)
-
-                    response = self.model.generate_content(
-                        [prompt, uploaded_file],
-                        request_options={"timeout": self.request_timeout},
-                    )
-
-                    extracted_text = (response.text or "").strip()
+                    extracted_text = self._generate_with_fallback([prompt, uploaded_file])
                     logger.info(
                         "✅ Extracted %d characters from lab report PDF",
                         len(extracted_text),
@@ -387,12 +396,7 @@ IMPORTANT OUTPUT RULES:
 - Do NOT include any additional text before or after the JSON.
 """
 
-            response = self.model.generate_content(
-                prompt,
-                request_options={"timeout": self.request_timeout},
-            )
-
-            response_text = (response.text or "").strip()
+            response_text = self._generate_with_fallback(prompt)
             analysis_obj = self._parse_json_response(response_text)
 
             if analysis_obj is None:

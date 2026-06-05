@@ -153,7 +153,7 @@ Chronobiology context:
 {bio_context}
 
 {critic_feedback}
-
+{language_directive}
 Begin your response now:"""
 
 

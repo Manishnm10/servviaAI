@@ -73,22 +73,28 @@ def analyze_skin_image(request):
                 'suggestion': 'Please upload a clear photograph of the affected skin area.'
             }, status=status.HTTP_400_BAD_REQUEST)
 
-        # ── Primary: Edge AI (Qwen3.5-2B via Ollama) ──
+        # ── Analysis (respects user-selected mode) ──
+        analysis_mode = request.data.get('analysis_mode', 'cloud').strip().lower()
         result = None
         edge_used = False
-        edge_raw = classify_skin_image(temp_path)
-        if edge_raw is not None:
-            result = edge_result_to_gemini_format(edge_raw)
-            if result is not None:
-                edge_used = True
-                logger.info(f"[EDGE] Skin analysis via Qwen3.5-2B: {result['disease']} ({edge_raw['confidence']}%) in {edge_raw.get('edge_inference_time', '?')}s")
 
-        # ── Fallback: Gemini (cloud) ──
-        if result is None:
+        if analysis_mode == 'edge':
+            # Edge-only: local Ollama, no cloud fallback
+            edge_raw = classify_skin_image(temp_path)
             if edge_raw is not None:
-                logger.info(f"[FALLBACK] Edge confidence too low ({edge_raw.get('confidence', 0)}%), using Gemini")
-            else:
-                logger.info("[FALLBACK] Edge unavailable, using Gemini")
+                result = edge_result_to_gemini_format(edge_raw)
+                if result is not None:
+                    edge_used = True
+                    logger.info(f"[EDGE] Skin analysis: {result['disease']} ({edge_raw['confidence']}%) in {edge_raw.get('edge_inference_time', '?')}s")
+            if result is None:
+                if temp_path and os.path.exists(temp_path):
+                    os.unlink(temp_path)
+                return Response({
+                    'success': False,
+                    'error': 'Edge AI could not classify this image. Try Cloud mode for better accuracy.'
+                }, status=status.HTTP_422_UNPROCESSABLE_ENTITY)
+        else:
+            # Cloud mode: Gemini directly
             result = detect_skin_disease_gemini(temp_path)
 
         # Clean up temp file
@@ -458,11 +464,11 @@ Hi **{user_name}**! I've analyzed your skin image and here's what I found:
     else:
         report += f"**Severity Level: {severity}** 🟢\n{urgency_note}\n"
         report += """**Recommended Actions:**
-1. 🌿 Start with the highest-rated remedy above
-2. ⏰ Use consistently for **1-2 weeks**
-3. 💧 Stay hydrated and maintain good hygiene
-4. 📊 Monitor progress
-5. ✅ Most cases resolve with proper care
+1. Start with the highest-rated remedy above
+2. Use consistently for **1-2 weeks**
+3. Stay hydrated and maintain good hygiene
+4. Monitor progress
+5. Most cases resolve with proper care
 """
 
     report += f"""---
@@ -663,6 +669,7 @@ def stream_skin_analysis_view(request):
 
     email = request.POST.get("email_id", "").strip()
     image_file = request.FILES.get("image")
+    analysis_mode = request.POST.get("analysis_mode", "cloud").strip().lower()
 
     if not email or not image_file:
         return StreamingHttpResponse(
@@ -674,7 +681,7 @@ def stream_skin_analysis_view(request):
     event_q = queue.Queue()
 
     def _pipeline_worker():
-        """Run image validation → Gemini analysis → Trust Engine in background thread."""
+        """Run image validation → Edge/Cloud analysis → Trust Engine in background thread."""
         temp_path = None
         try:
             # ── Stage 1: Process image ──
@@ -702,28 +709,39 @@ def stream_skin_analysis_view(request):
                 event_q.put(("error", {"message": validation['reason']}))
                 return
 
-            # ── Stage 3: Edge AI Analysis (primary) ──
+            # ── Stage 3: Analysis (respects user-selected mode) ──
             result = None
             edge_raw = None
 
-            if is_ollama_available():
+            if analysis_mode == "edge":
+                # Edge-only mode: use local Ollama, NO cloud fallback
+                if is_ollama_available():
+                    event_q.put(("stage", {
+                        "id": "analysis",
+                        "label": "Analyzing with Edge AI (local, private)...",
+                        "icon": "fa-microchip",
+                    }))
+                    edge_raw = classify_skin_image(temp_path)
+                    if edge_raw is not None:
+                        result = edge_result_to_gemini_format(edge_raw)
+                        if result is not None:
+                            logger.info(f"[EDGE] Stream: {result['disease']} ({edge_raw['confidence']}%)")
+                    if result is None:
+                        event_q.put(("error", {
+                            "message": "Edge AI could not classify this image with sufficient confidence. "
+                                       "Try switching to Cloud mode for better accuracy."
+                        }))
+                        return
+                else:
+                    event_q.put(("error", {
+                        "message": "Edge AI (Ollama) is not running. Start Ollama first, or switch to Cloud mode."
+                    }))
+                    return
+            else:
+                # Cloud mode: use Gemini directly (no edge)
                 event_q.put(("stage", {
                     "id": "analysis",
-                    "label": "Analyzing with Edge AI...",
-                    "icon": "fa-microchip",
-                }))
-                edge_raw = classify_skin_image(temp_path)
-                if edge_raw is not None:
-                    result = edge_result_to_gemini_format(edge_raw)
-                    if result is not None:
-                        logger.info(f"[EDGE] Stream: {result['disease']} ({edge_raw['confidence']}%)")
-
-            # ── Stage 3b: Gemini fallback (cloud) ──
-            if result is None:
-                reason = "low confidence" if edge_raw else "Edge AI unavailable"
-                event_q.put(("stage", {
-                    "id": "analysis",
-                    "label": f"Analyzing with Cloud AI ({reason})...",
+                    "label": "Analyzing with Cloud AI...",
                     "icon": "fa-cloud",
                 }))
                 result = detect_skin_disease_gemini(temp_path)
@@ -819,31 +837,12 @@ def stream_skin_analysis_view(request):
                 break
             elif event_type == "stream_summary":
                 words = data.split(" ")
-                word_count = len(words)
-                if word_count < 200:
-                    base_delay = 0.018
-                elif word_count < 400:
-                    base_delay = 0.010
-                else:
-                    base_delay = 0.005
-
-                batch = []
                 for i, word in enumerate(words):
-                    batch.append(word)
-                    is_last = (i == word_count - 1)
-                    at_punctuation = word.rstrip().endswith((".", "!", "?", ":", "---"))
-                    at_batch_limit = len(batch) >= 3
-
-                    if is_last or at_punctuation or at_batch_limit:
-                        text = " ".join(batch)
-                        if not is_last:
-                            text += " "
-                        yield _sse("token", {"text": text})
-                        batch = []
-                        if at_punctuation:
-                            _time.sleep(base_delay * 3)
-                        else:
-                            _time.sleep(base_delay)
+                    is_last = (i == len(words) - 1)
+                    text = word if is_last else word + " "
+                    yield _sse("token", {"text": text})
+                    at_punctuation = word.rstrip().endswith((".", "!", "?", ":"))
+                    _time.sleep(0.045 if at_punctuation else 0.020)
             elif event_type == "done":
                 yield _sse("done", data)
 

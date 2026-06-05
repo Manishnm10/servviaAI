@@ -82,6 +82,7 @@ class AgentState(TypedDict):
     user_allergies: list     # Declared allergens -LLM must never suggest these
     user_medications: list   # Current medications -LLM checks interactions
     user_conditions: list    # Known medical conditions
+    target_language: str     # ISO code the reply must be written in ("en" = English)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -345,6 +346,11 @@ async def proposer_node(state: AgentState) -> dict:
     # Get condition name from diagnostician -used in the h2 header
     condition_name = state.get("primary_condition", "") or "Under Evaluation"
 
+    # Build the language directive so the reply is written directly in the
+    # user's language (empty string for English).
+    from api.language_support import build_language_directive
+    language_directive = build_language_directive(state.get("target_language", "en"))
+
     try:
         prompt = PROPOSER_PROMPT.format(
             user_name=name,
@@ -357,6 +363,7 @@ async def proposer_node(state: AgentState) -> dict:
             critic_feedback=feedback_section,
             diagnosis_context=diagnosis_context,
             condition_name=condition_name,
+            language_directive=language_directive,
         )
     except Exception as fmt_err:
         logger.error(f"PROPOSER prompt format error: {fmt_err}", exc_info=True)
@@ -571,6 +578,7 @@ async def run_proposer_only(
     user_allergies: list = None,
     user_medications: list = None,
     user_conditions: list = None,
+    target_language: str = "en",
 ) -> str:
     """
     Fast path for minor queries — Proposer only, no Critic review.
@@ -590,6 +598,7 @@ async def run_proposer_only(
         "user_allergies": user_allergies or [],
         "user_medications": user_medications or [],
         "user_conditions": user_conditions or [],
+        "target_language": target_language or "en",
     }
 
     _trace("Proposer-ONLY fast path (minor query, skipping Critic)")
@@ -682,6 +691,7 @@ async def run_verification_pipeline(
     diagnosis_output: str = "",
     symptom_list: list = None,
     primary_condition: str = "",
+    target_language: str = "en",
 ) -> str:
     """
     Execute the Diagnostician -> Proposer -> Critic -> Fallback pipeline.
@@ -703,6 +713,7 @@ async def run_verification_pipeline(
         "user_allergies": user_allergies or [],
         "user_medications": user_medications or [],
         "user_conditions": user_conditions or [],
+        "target_language": target_language or "en",
     }
 
     mode = "parallel (diagnosis pre-computed)" if diagnosis_output else "sequential"

@@ -127,6 +127,255 @@ ANALYSIS STEPS:
 RESPOND WITH ONLY THIS JSON (no markdown, no extra text):
 {{"condition":"exact name from list","confidence":0-100,"severity":"mild|moderate|severe|normal","key_features":["feature1","feature2","feature3"],"affected_area":"body part","description":"2 sentences: what you see clinically.","reasoning":"Why this condition and NOT the most similar alternative. Reference specific visual features.","differential_diagnosis":["alt1","alt2"],"distinguishing_features":"key feature separating this from alternatives","border_type":"sharp/defined OR diffuse/poorly-defined","scale_type":"thick/silvery OR thin/fine OR loose/greasy OR none","texture":"flat OR raised OR plaque-like"}}"""
 
+# ─── Simplified prompt for small models (moondream, llava-phi3, etc.) ─────
+# These models can't handle complex multi-step prompts or large JSON schemas.
+# Two-pass approach: Pass 1 = describe what you see, Pass 2 = deterministic mapping.
+
+_SMALL_MODEL_DESCRIBE_PROMPT = (
+    "Describe what you see on this skin in detail. Include the body part, skin color, "
+    "texture, any bumps, spots, patches, rashes, redness, scales, flakes, or swelling, "
+    "and the overall pattern."
+)
+
+# Ultra-short retry prompt for when the primary prompt yields empty output.
+# Moondream often produces 0 tokens for multi-clause prompts but answers simple questions.
+_SMALL_MODEL_RETRY_PROMPTS = [
+    "What do you see on this skin?",
+    "Describe this image.",
+]
+
+# Models that need the simplified two-pass approach (base name matching)
+_SMALL_MODELS = {"moondream", "llava-phi3"}
+
+# Models that must skip /api/chat and go straight to /api/generate for vision
+# (moondream returns empty content via chat but works correctly via generate)
+_GENERATE_ONLY_MODELS = {"moondream"}
+
+# Keyword → condition mapping for deterministic classification from descriptions
+_KEYWORD_CONDITION_MAP = [
+    # Order matters: more specific patterns first
+    (["ring", "circular", "center clear"], "Fungal Infections (Ringworm, Athlete's Foot)"),
+    (["between toes", "toe", "macerat", "peeling between"], "Athlete's Foot"),
+    (["groin", "inner thigh", "jock"], "Jock Itch"),
+    (["blister", "lip", "cold sore", "herpes", "cluster", "mouth"], "Cold Sores"),
+    (["wart", "cauliflower", "rough bump", "verruca"], "Warts (Common Warts)"),
+    (["razor", "shav", "ingrown", "neck bump"], "Razor Bumps (Pseudofolliculitis Barbae)"),
+    (["ingrown hair"], "Ingrown Hairs"),
+    (["mosquito", "insect bite", "bug bite"], "Mosquito Bite Reactions"),
+    (["chapped lip", "dry lip", "cracked lip"], "Chapped Lips"),
+    (["silvery", "plaque", "thick scale", "psoriasis", "white scale",
+      "white patch", "scaly patch", "rough patch"], "Psoriasis (mild forms)"),
+    (["dandruff", "flak", "scalp flak", "greasy scalp", "white flake",
+      "dry flake"], "Dandruff (Seborrheic Dermatitis)"),
+    (["follicul", "pustule", "hair follicle", "scalp bump"], "Scalp Folliculitis"),
+    (["hive", "wheal", "welt", "urticaria", "raised welt"], "Hives (Urticaria)"),
+    (["heat rash", "prickly", "tiny red dot", "sweat rash", "miliaria"], "Heat Rash (Prickly Heat)"),
+    (["eczema", "atopic", "weeping", "crusted patch", "flexural"], "Eczema (Atopic Dermatitis)"),
+    (["contact", "geometric", "linear rash", "blister rash"], "Contact Dermatitis"),
+    (["sunburn", "sun burn", "peeling skin", "sun damage"], "Sunburn"),
+    (["acne", "pimple", "blackhead", "whitehead", "comedone", "zit"], "Acne"),
+    (["fungal", "fungus", "ringworm", "tinea"], "Fungal Infections (Ringworm, Athlete's Foot)"),
+    (["dry skin", "xerosis", "flaky dry", "cracked skin", "scaly dry"], "Dry Skin (Xerosis)"),
+    (["allerg", "rash", "red bump", "itchy bump"], "Allergic Rash (Mild Allergic Dermatitis)"),
+    # Broad visual patterns as last resort
+    (["red patch", "inflam", "irritat"], "Eczema (Atopic Dermatitis)"),
+    (["bump", "raised", "papule"], "Acne"),
+    (["scale", "scaly", "flak"], "Dry Skin (Xerosis)"),
+    (["normal", "healthy", "clear skin", "no lesion", "no rash"], "Normal Skin"),
+]
+
+
+def _is_small_model(model_name: str) -> bool:
+    """Check if the active model needs the simplified prompt path."""
+    name_lower = model_name.lower()
+    return any(sm in name_lower for sm in _SMALL_MODELS)
+
+
+def _classify_from_description(description: str) -> Dict:
+    """
+    Deterministic classification: map a natural-language skin description
+    to one of the supported conditions using keyword matching with
+    region-aware scoring boosts.
+    """
+    desc_lower = description.lower()
+
+    # ── Region detection ──────────────────────────────────────────────
+    # Word-boundary matching so "head" doesn't match "forehead" and
+    # "hair" doesn't match "eyelash/eyebrow/facial hair".
+    import re as _re
+    has_scalp_word = bool(_re.search(r"\b(?:scalp|hairline|crown)\b", desc_lower))
+    has_hair_context = bool(_re.search(
+        r"\b(?:their|the|your|his|her) hair\b|"
+        r"\bhair (?:visible|is|appears|above|at the|styled|on top|on the head)\b|"
+        r"\bflaky scalp\b|\bgreasy hair\b|\boily hair\b|\bdry hair\b",
+        desc_lower,
+    ))
+    on_scalp = has_scalp_word or has_hair_context
+
+    # Face includes forehead, cheek, nose, chin, jaw, eye area.
+    on_face = any(w in desc_lower for w in (
+        "face", "forehead", "cheek", "chin", "jaw", "nose",
+        "eyebrow", "eyelid", "under the eye", "t-zone",
+    )) and not on_scalp
+
+    # Scaly/flaky cues (classic psoriasis/dandruff vocabulary).
+    scaly_feature = any(w in desc_lower for w in (
+        "scale", "scaly", "flak", "rough texture", "rough patch",
+        "dry patch", "white patch", "white bump", "silver",
+        "white spot", "white dot", "white mark", "dry skin",
+        "crust", "peel",
+    ))
+    # Pimple/acne cues (clinical or lay language for multiple small bumps).
+    pimple_feature = any(w in desc_lower for w in (
+        "pimple", "whitehead", "blackhead", "zit", "comedone",
+        "pustule", "papule",
+    ))
+    multiple_bumps = any(phrase in desc_lower for phrase in (
+        "bumps scattered", "many bumps", "several bumps", "multiple bumps",
+        "numerous bumps", "tiny bumps", "small bumps", "cluster of bumps",
+        "bumps across", "bumps all over", "red bumps", "small skin growth",
+        "skin growths",
+    ))
+    generic_skin_issue = any(w in desc_lower for w in (
+        "spot", "patch", "mark", "bump", "rash", "red", "dry",
+        "white", "rough", "flak", "scale", "crust", "peel",
+    ))
+
+    # ── Scoring ──────────────────────────────────────────────────────
+    best_condition = "Normal Skin"
+    best_score = 0.0
+    best_keywords = []
+
+    for keywords, condition in _KEYWORD_CONDITION_MAP:
+        score = float(sum(1 for kw in keywords if kw in desc_lower))
+
+        # Scalp region boosts
+        if on_scalp and scaly_feature:
+            if condition.startswith("Psoriasis"):
+                score += 2.0
+            elif condition.startswith("Dandruff"):
+                score += 1.5
+            elif condition.startswith("Allergic Rash") or condition == "Acne":
+                score -= 1.0
+        elif on_scalp and generic_skin_issue:
+            if condition.startswith("Psoriasis"):
+                score += 1.2
+            elif condition.startswith("Dandruff"):
+                score += 1.0
+            elif condition.startswith("Scalp Folliculitis"):
+                score += 0.8
+            elif condition.startswith("Allergic Rash") or condition == "Acne":
+                score -= 0.5
+
+        # Face region boosts: face + (pimples OR multiple small bumps) → Acne
+        if on_face and (pimple_feature or multiple_bumps):
+            if condition == "Acne":
+                score += 2.0
+            elif condition.startswith("Allergic Rash"):
+                score -= 0.8
+        elif on_face and generic_skin_issue:
+            # Face + vague abnormality: small nudge to Acne, penalize
+            # generic Allergic Rash so it doesn't win with just "rash" keyword.
+            if condition == "Acne":
+                score += 0.5
+            elif condition.startswith("Allergic Rash"):
+                score -= 0.3
+
+        if score > best_score:
+            best_score = score
+            best_condition = condition
+            best_keywords = [kw for kw in keywords if kw in desc_lower]
+
+    # Defaults when scoring produces nothing meaningful.
+    if best_score <= 0:
+        if on_scalp and (scaly_feature or generic_skin_issue):
+            best_condition = "Psoriasis (mild forms)"
+            best_score = 1.0
+            best_keywords = ["scalp", "abnormal mark"]
+        elif on_face and (pimple_feature or multiple_bumps):
+            best_condition = "Acne"
+            best_score = 1.0
+            best_keywords = ["face", "multiple bumps"]
+
+    # Confidence based on match strength
+    if best_score >= 3:
+        confidence = 85
+    elif best_score >= 2:
+        confidence = 78
+    elif best_score >= 1:
+        confidence = 70
+    else:
+        confidence = 50
+
+    # Severity from description keywords
+    severity = "mild"
+    if any(w in desc_lower for w in ["severe", "intense", "spreading", "large area", "painful"]):
+        severity = "severe"
+    elif any(w in desc_lower for w in ["moderate", "noticeable", "inflamed", "swollen"]):
+        severity = "moderate"
+    elif any(w in desc_lower for w in ["normal", "healthy", "clear"]):
+        severity = "normal"
+
+    # Extract key features: sentences containing matched keywords
+    sentences = [s.strip() for s in description.replace("\n", ". ").split(".") if len(s.strip()) > 10]
+    key_features = []
+    for s in sentences[:5]:
+        s_lower = s.lower()
+        if any(kw in s_lower for kw in best_keywords) or any(
+            w in s_lower for w in ["red", "bump", "rash", "scale", "dry", "patch", "blister", "itch"]
+        ):
+            key_features.append(s.strip())
+        if len(key_features) >= 3:
+            break
+    if not key_features:
+        key_features = sentences[:3]
+
+    # Extract affected area. Priority order matters: scalp/hairline/forehead
+    # should beat generic "back" when the description mentions hair — moondream
+    # often says "back of the neck" which naive regex picks up as "back".
+    import re
+    # Strip phrases that use anatomy prepositionally (e.g., "back of their neck").
+    area_search_text = re.sub(r"\bback of\b", "", desc_lower)
+
+    priority_areas = [
+        "scalp", "hairline", "forehead", "face", "cheek", "nose", "lip",
+        "neck", "shoulder", "chest", "torso", "back", "stomach",
+        "arm", "elbow", "wrist", "hand", "finger",
+        "leg", "thigh", "knee", "shin", "foot", "feet", "toe", "groin",
+    ]
+    affected_area = "Not specified"
+    if on_scalp:
+        # Strong signal already — prefer scalp/forehead over generic body parts.
+        for candidate in ("scalp", "hairline", "forehead", "head"):
+            if candidate in area_search_text:
+                affected_area = "Scalp" if candidate in ("scalp", "hairline", "head") else candidate.title()
+                break
+    if affected_area == "Not specified":
+        for candidate in priority_areas:
+            if re.search(rf"\b{candidate}\b", area_search_text):
+                affected_area = candidate.title()
+                break
+
+    logger.info(
+        f"[EDGE] Description-based classification: {best_condition} "
+        f"(score={best_score}, confidence={confidence}%, keywords={best_keywords})"
+    )
+
+    return {
+        "condition": best_condition,
+        "confidence": confidence,
+        "severity": severity,
+        "key_features": key_features,
+        "affected_area": affected_area,
+        "description": description[:300].replace("\n", " "),
+        "reasoning": f"Visual description matched {len(best_keywords)} indicator(s) for {best_condition}: {', '.join(best_keywords)}. {description[:200]}",
+        "differential_diagnosis": [],
+        "distinguishing_features": "",
+        "border_type": "",
+        "scale_type": "",
+        "texture": "",
+    }
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Ollama health check
@@ -211,26 +460,11 @@ def warmup_vision_model() -> bool:
 # Edge classification
 # ─────────────────────────────────────────────────────────────────────────────
 
-def classify_skin_image(image_path: str) -> Optional[Dict]:
-    """
-    Classify a skin image using Qwen3.5-2B via Ollama.
-
-    Args:
-        image_path: Path to the image file (jpg/png).
-
-    Returns:
-        Structured dict matching Gemini's output format, or None on failure/timeout.
-        Includes 'edge_inference_time' for performance tracking.
-    """
-    model = _init_vision_model()
-    if not model:
-        logger.warning("Ollama not available — skipping edge classification")
-        return None
-
-    # Resize image to 512px max dimension (faster encoding + inference)
-    # and encode as base64 JPEG
+def _encode_image(image_path: str) -> Optional[str]:
+    """Resize image to 512px max and return base64-encoded JPEG."""
     try:
         from PIL import Image
+        import io
         img = Image.open(image_path)
         max_dim = max(img.size)
         if max_dim > 512:
@@ -238,16 +472,153 @@ def classify_skin_image(image_path: str) -> Optional[Dict]:
             new_size = (int(img.size[0] * scale), int(img.size[1] * scale))
             img = img.resize(new_size, Image.LANCZOS)
             logger.info(f"[EDGE] Resized image: {img.size[0]}x{img.size[1]}")
-        import io
         buf = io.BytesIO()
         img.save(buf, format="JPEG", quality=85)
-        image_b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
+        return base64.b64encode(buf.getvalue()).decode("utf-8")
     except Exception as e:
         logger.error(f"Failed to process image: {e}")
         return None
 
-    # Call Ollama API
-    # "format": "json" forces the model to emit valid JSON regardless of its natural style
+
+def _describe_via_generate(model: str, image_b64: str, timeout: int) -> Optional[str]:
+    """
+    Description via /api/generate. Tries the detailed prompt first, then falls
+    back to progressively simpler prompts on empty response — small vision models
+    (especially moondream) sometimes emit 0 tokens on multi-clause prompts.
+    """
+    prompts_to_try = [_SMALL_MODEL_DESCRIBE_PROMPT] + _SMALL_MODEL_RETRY_PROMPTS
+    deadline = time.time() + timeout
+
+    for attempt, prompt in enumerate(prompts_to_try, 1):
+        remaining = int(deadline - time.time())
+        if remaining <= 5:
+            break
+        try:
+            resp = httpx.post(
+                f"{OLLAMA_BASE_URL}/api/generate",
+                json={
+                    "model": model,
+                    "prompt": prompt,
+                    "images": [image_b64],
+                    "stream": False,
+                    # No temperature override — use model defaults; moondream is
+                    # sensitive to low temps on complex prompts.
+                    "options": {"num_predict": 256, "num_ctx": 2048},
+                },
+                timeout=remaining,
+            )
+            if resp.status_code != 200:
+                logger.warning(
+                    "[EDGE] /api/generate attempt %d HTTP %d: %s",
+                    attempt, resp.status_code, resp.text[:200],
+                )
+                continue
+
+            content = resp.json().get("response", "").strip()
+            if content:
+                logger.info(
+                    "[EDGE] /api/generate attempt %d succeeded (%d chars, prompt=%r)",
+                    attempt, len(content), prompt[:40] + "...",
+                )
+                return content
+
+            logger.warning(
+                "[EDGE] /api/generate attempt %d returned empty (prompt=%r) — retrying with simpler prompt",
+                attempt, prompt[:40] + "...",
+            )
+        except httpx.TimeoutException:
+            logger.warning("[EDGE] /api/generate attempt %d timed out", attempt)
+            break
+        except Exception as e:
+            logger.warning("[EDGE] /api/generate attempt %d error: %s", attempt, e)
+            continue
+
+    return None
+
+
+def _classify_small_model(model: str, image_b64: str) -> Optional[Dict]:
+    """
+    Two-pass classification for small vision models (moondream, llava-phi3).
+
+    Pass 1: Ask the model to describe what it sees (simple open-ended prompt).
+            Tries /api/chat first; falls back to /api/generate if content is empty
+            (moondream returns empty content via chat but works via generate).
+    Pass 2: Deterministically map the description to a supported condition.
+    """
+    start_time = time.time()
+
+    raw_content = None
+    model_base = model.split(":")[0].lower()
+
+    # Pass 1a: try /api/chat (skipped for models known to return empty via chat)
+    if model_base not in _GENERATE_ONLY_MODELS:
+        try:
+            logger.info(f"[EDGE] Small model path — asking {model} to describe skin image...")
+            resp = httpx.post(
+                f"{OLLAMA_BASE_URL}/api/chat",
+                json={
+                    "model": model,
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": _SMALL_MODEL_DESCRIBE_PROMPT,
+                            "images": [image_b64],
+                        },
+                    ],
+                    "stream": False,
+                    "options": {"temperature": 0.2, "num_predict": 300, "num_ctx": 2048},
+                },
+                timeout=EDGE_TIMEOUT,
+            )
+            elapsed = time.time() - start_time
+
+            if resp.status_code == 200:
+                raw_content = resp.json().get("message", {}).get("content", "").strip()
+                if not raw_content:
+                    logger.warning(
+                        f"[EDGE] chat returned empty after {elapsed:.1f}s — retrying via /api/generate"
+                    )
+            else:
+                logger.error(f"[EDGE] Ollama /api/chat returned {resp.status_code}: {resp.text[:200]}")
+
+        except httpx.TimeoutException:
+            elapsed = time.time() - start_time
+            logger.warning(f"[EDGE] /api/chat timed out after {elapsed:.1f}s")
+        except Exception as e:
+            logger.error(f"[EDGE] /api/chat error: {e}", exc_info=True)
+    else:
+        logger.info(f"[EDGE] {model} uses /api/generate directly (skipping chat)")
+
+    # Pass 1b: /api/generate — primary for moondream, fallback for others
+    if not raw_content:
+        remaining = max(30, EDGE_TIMEOUT - int(time.time() - start_time))
+        raw_content = _describe_via_generate(model, image_b64, timeout=remaining)
+
+    elapsed = time.time() - start_time
+
+    if not raw_content:
+        logger.warning(f"[EDGE] Both chat and generate returned empty after {elapsed:.1f}s")
+        return None
+
+    logger.info(f"[EDGE] Got description in {elapsed:.1f}s ({len(raw_content)} chars): {raw_content[:150]}...")
+
+    # Pass 2: Deterministic keyword-based classification
+    parsed = _classify_from_description(raw_content)
+    parsed["edge_inference_time"] = round(elapsed, 2)
+    parsed["edge_model"] = model
+
+    logger.info(
+        f"[EDGE] Classification: {parsed.get('condition', '?')} "
+        f"({parsed.get('confidence', 0)}%) in {elapsed:.1f}s"
+    )
+    return parsed
+
+
+def _classify_large_model(model: str, image_b64: str) -> Optional[Dict]:
+    """
+    Full structured classification for capable vision models (minicpm-v, llava, llama3.2-vision).
+    Uses the detailed dermatology prompt with JSON output.
+    """
     payload = {
         "model": model,
         "messages": [
@@ -266,10 +637,10 @@ def classify_skin_image(image_path: str) -> Optional[Dict]:
             },
         ],
         "stream": False,
-        "format": "json",   # Ollama-level JSON enforcement — overrides model verbosity
+        "format": "json",
         "options": {
             "temperature": 0.1,
-            "num_predict": 300,  # enough for full JSON including reasoning
+            "num_predict": 300,
             "num_ctx": 4096,
         },
     }
@@ -277,7 +648,7 @@ def classify_skin_image(image_path: str) -> Optional[Dict]:
     start_time = time.time()
 
     try:
-        logger.info(f"[EDGE] Sending image to {OLLAMA_MODEL}...")
+        logger.info(f"[EDGE] Sending image to {model}...")
         resp = httpx.post(
             f"{OLLAMA_BASE_URL}/api/chat",
             json=payload,
@@ -289,29 +660,24 @@ def classify_skin_image(image_path: str) -> Optional[Dict]:
             logger.error(f"[EDGE] Ollama returned {resp.status_code}: {resp.text[:200]}")
             return None
 
-        result = resp.json()
-        message = result.get("message", {})
-
-        raw_content = message.get("content", "")
-
-        if not raw_content or not raw_content.strip():
-            logger.warning(f"[EDGE] Empty response from {OLLAMA_MODEL} after {elapsed:.1f}s")
+        raw_content = resp.json().get("message", {}).get("content", "").strip()
+        if not raw_content:
+            logger.warning(f"[EDGE] Empty response from {model} after {elapsed:.1f}s")
             return None
 
         logger.info(f"[EDGE] Got response in {elapsed:.1f}s ({len(raw_content)} chars)")
 
-        # Parse JSON from response
         parsed = _parse_edge_response(raw_content)
         if parsed is None:
             return None
 
         parsed["edge_inference_time"] = round(elapsed, 2)
-        parsed["edge_model"] = OLLAMA_MODEL
+        parsed["edge_model"] = model
 
         condition = parsed.get("condition", "")
         affected_area = parsed.get("affected_area", "").lower()
 
-        # ── Scalp challenge pass: binary plaque vs flake for ambiguous conditions ──
+        # Scalp challenge pass for ambiguous conditions
         if condition in _SCALP_AMBIGUOUS or "scalp" in affected_area:
             challenge = _challenge_scalp_condition(image_b64)
             logger.info(f"[EDGE] Scalp challenge result: {challenge!r} (condition was: {condition})")
@@ -336,16 +702,42 @@ def classify_skin_image(image_path: str) -> Optional[Dict]:
             f"[EDGE] Classification: {parsed.get('condition', '?')} "
             f"({parsed.get('confidence', 0)}%) in {elapsed:.1f}s"
         )
-
         return parsed
 
     except httpx.TimeoutException:
         elapsed = time.time() - start_time
-        logger.warning(f"[EDGE] Ollama timeout after {elapsed:.1f}s — falling back to cloud")
+        logger.warning(f"[EDGE] Ollama timeout after {elapsed:.1f}s")
         return None
     except Exception as e:
         logger.error(f"[EDGE] Classification error: {e}", exc_info=True)
         return None
+
+
+def classify_skin_image(image_path: str) -> Optional[Dict]:
+    """
+    Classify a skin image using the best available Ollama vision model.
+
+    Automatically selects the right strategy:
+    - Small models (moondream, llava-phi3): two-pass describe→classify
+    - Large models (minicpm-v, llava, llama3.2-vision): full structured JSON prompt
+
+    Returns:
+        Structured dict matching Gemini's output format, or None on failure/timeout.
+    """
+    model = _init_vision_model()
+    if not model:
+        logger.warning("Ollama not available — skipping edge classification")
+        return None
+
+    image_b64 = _encode_image(image_path)
+    if not image_b64:
+        return None
+
+    if _is_small_model(model):
+        logger.info(f"[EDGE] Using simplified two-pass path for small model: {model}")
+        return _classify_small_model(model, image_b64)
+    else:
+        return _classify_large_model(model, image_b64)
 
 
 _SCALP_CHALLENGE_PROMPT = """Look ONLY at the scale/flake on this scalp image. Ignore everything else.

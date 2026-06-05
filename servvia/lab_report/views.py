@@ -438,11 +438,13 @@ def stream_lab_report_view(request):
 
 async def _run_streaming_analysis(anonymized_text: str, event_q: queue.Queue):
     """Run the streaming LLM analysis, collecting chunks silently."""
+    from contextlib import aclosing
     try:
         result = None
-        async for event_type, data in stream_lab_report_analysis(anonymized_text):
-            if event_type == "complete":
-                result = data["result"]
+        async with aclosing(stream_lab_report_analysis(anonymized_text)) as gen:
+            async for event_type, data in gen:
+                if event_type == "complete":
+                    result = data["result"]
         return result
     except Exception as e:
         logger.error(f"Streaming analysis error: {e}", exc_info=True)
@@ -809,11 +811,9 @@ def confirm_and_analyze_view(request):
         })
 
     except Exception as e:
-        import traceback
-        error_msg = traceback.format_exc()
         logger.error(f"[Co-Pilot] Confirm+Analyze error: {e}", exc_info=True)
         return Response(
-            {'error': 'An unexpected error occurred. Please try again.', 'debug_trace': error_msg},
+            {'error': 'An unexpected error occurred. Please try again.'},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
 

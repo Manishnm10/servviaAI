@@ -142,10 +142,19 @@ class PHIRedactor:
             logger.info("No PHI entities detected in text")
             return raw_text
 
-        logger.info(
-            f"Detected {len(results)} PHI entities: "
-            f"{[r.entity_type for r in results]}"
+        # Count by type and count unique surface strings per type.
+        type_counts: Dict[str, int] = {}
+        unique_by_type: Dict[str, set] = {}
+        for r in results:
+            type_counts[r.entity_type] = type_counts.get(r.entity_type, 0) + 1
+            unique_by_type.setdefault(r.entity_type, set()).add(
+                raw_text[r.start:r.end].strip().lower()
+            )
+        breakdown = ", ".join(
+            f"{t}: {type_counts[t]} detections / {len(unique_by_type[t])} unique"
+            for t in sorted(type_counts)
         )
+        logger.info(f"Detected {len(results)} PHI entities — {breakdown}")
 
         # Step 3: Build operator config with sequential placeholders
         operators = self._build_operators(results)
